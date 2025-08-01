@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/Build/">
+    <File Path=".github/workflows/dotnet.yml" />
+    <File Path="README.md" />
+    <File Path="src/Directory.Build.props" />
+  </Folder>
+  <Project Path="src/AspNetCore.HmacAuthentication/AspNetCore.HmacAuthentication.csproj" Id="15980cb6-86e2-4678-a29e-c74139684ce6" />
+  <Project Path="test/AspNetCore.HmacAuthentication.Tests/AspNetCore.HmacAuthentication.Tests.csproj" Id="2bb16589-28e6-4334-aa6d-bf3c508b8a78" />
+</Solution>
