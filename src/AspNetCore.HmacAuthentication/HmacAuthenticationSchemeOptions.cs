@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Authentication;
 
 namespace AspNetCore.HmacAuthentication;
 
-public class HmacAuthenticationOptions : AuthenticationSchemeOptions
+public class HmacAuthenticationSchemeOptions : AuthenticationSchemeOptions
 {
     public const string DefaultScheme = "HMAC";
 

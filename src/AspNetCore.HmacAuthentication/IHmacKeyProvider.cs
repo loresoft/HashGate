@@ -12,7 +12,7 @@ public interface IHmacKeyProvider
     /// <summary>
     /// Asynchronously retrieves the HMAC secret for the specified client identifier.
     /// </summary>
-    /// <param name="clientId">
+    /// <param name="client">
     /// The client identifier whose HMAC secret is to be retrieved. Must not be <c>null</c> or empty.
     /// </param>
     /// <returns>
@@ -20,7 +20,7 @@ public interface IHmacKeyProvider
     /// or <c>null</c> or empty if the client identifier is not found.
     /// </returns>
     /// <exception cref="ArgumentNullException">
-    /// Thrown if <paramref name="clientId"/> is <c>null</c>.
+    /// Thrown if <paramref name="client"/> is <c>null</c>.
     /// </exception>
-    ValueTask<string?> GetSecretAsync(string clientId);
+    ValueTask<string?> GetSecretAsync(string client);
 }

@@ -1,8 +1,11 @@
+using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Encodings.Web;
 
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
@@ -10,367 +13,279 @@ namespace AspNetCore.HmacAuthentication.Tests;
 
 public class HmacAuthenticationHandlerTests
 {
-    private class TestHmacKeyProvider : IHmacKeyProvider
+    private readonly HmacAuthenticationSchemeOptions _options;
+    private readonly AuthenticationScheme _scheme;
+    private readonly IOptionsMonitor<HmacAuthenticationSchemeOptions> _optionsMonitor;
+    private readonly ILoggerFactory _loggerFactory;
+    private readonly UrlEncoder _urlEncoder;
+
+    public HmacAuthenticationHandlerTests()
     {
-        private readonly Dictionary<string, string> _secrets;
-        public TestHmacKeyProvider(Dictionary<string, string> secrets) => _secrets = secrets;
-        public ValueTask<string?> GetSecretAsync(string clientId)
-            => new(_secrets.TryGetValue(clientId, out var secret) ? secret : null);
+        _options = new HmacAuthenticationSchemeOptions();
+        _scheme = new AuthenticationScheme(HmacAuthenticationShared.DefaultSchemeName, "HMAC Scheme", typeof(HmacAuthenticationHandler));
+        _optionsMonitor = new TestOptionsMonitor(_options);
+        _loggerFactory = new NullLoggerFactory();
+        _urlEncoder = UrlEncoder.Default;
     }
 
-    private class TestOptionsMonitor<T> : IOptionsMonitor<T> where T : class
+    private HmacAuthenticationHandler CreateHandler(string key = "Test-HMAC-Key")
     {
-        public T CurrentValue { get; }
-        public TestOptionsMonitor(T value) => CurrentValue = value;
-        public T Get(string name) => CurrentValue;
-        public IDisposable OnChange(Action<T, string> listener) => null!;
+        var provider = new TestHmacKeyProvider(key);
+        return new HmacAuthenticationHandler(_optionsMonitor, _loggerFactory, _urlEncoder, provider);
     }
 
-    private static HmacAuthenticationHandler CreateHandler(
-        string authorizationHeader,
+    private static DefaultHttpContext CreateHttpContext(
         string method = "GET",
-        string path = "/api/test",
-        string query = "",
-        string body = "",
-        long timestamp = 1722450000,
-        string clientId = "myClient",
-        string clientSecret = "superSecret",
-        IEnumerable<string>? signedHeaders = null,
-        string? overrideSignature = null,
-        int toleranceWindow = 10)
+        string url = "/",
+        string? content = null,
+        string secretKey = "Test-HMAC-Key")
     {
         var context = new DefaultHttpContext();
+
+        // Set HTTP method
         context.Request.Method = method;
-        context.Request.Path = path;
-        context.Request.QueryString = new QueryString(query);
-        context.Request.Body = new MemoryStream(Encoding.UTF8.GetBytes(body));
-        context.Request.ContentLength = body.Length;
-        context.Request.Headers.Authorization = authorizationHeader;
 
-        if (signedHeaders != null)
-        {
-            foreach (var header in signedHeaders)
-                context.Request.Headers[header] = "header-value";
-        }
+        // Parse URL and set request properties
+        var uri = new Uri("http://localhost" + url, UriKind.Absolute);
 
-        var options = new HmacAuthenticationOptions
-        {
-            ToleranceWindow = toleranceWindow
-        };
+        context.Request.Scheme = uri.Scheme;
+        context.Request.Host = new HostString(uri.Host, uri.Port);
+        context.Request.Path = uri.AbsolutePath;
+        context.Request.QueryString = new QueryString(uri.Query);
 
-        var optionsMonitor = new TestOptionsMonitor<HmacAuthenticationOptions>(options);
-        var loggerFactory = new NullLoggerFactory();
-        var encoder = UrlEncoder.Default;
+        // set timestamp header
+        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
+        context.Request.Headers.Append(HmacAuthenticationShared.TimeStampHeaderName, timestamp);
 
-        var secrets = new Dictionary<string, string>();
-        if (!string.IsNullOrEmpty(clientId))
-            secrets[clientId] = clientSecret ?? "";
+        // get content hash
+        var contentBytes = Encoding.UTF8.GetBytes(content ?? string.Empty);
+        var contentHash = SHA256.HashData(contentBytes);
+        var contentHashEncoded = Convert.ToBase64String(contentHash);
 
-        var keyProvider = new TestHmacKeyProvider(secrets);
+        // Set content body
+        context.Request.Body = new System.IO.MemoryStream(contentBytes);
+        context.Request.ContentLength = contentBytes.Length;
 
-        var handler = new HmacAuthenticationHandler(optionsMonitor, loggerFactory, encoder, keyProvider);
-        handler.InitializeAsync(new AuthenticationScheme("HMAC", null, typeof(HmacAuthenticationHandler)), context);
+        // set content hash header
+        context.Request.Headers.Append(HmacAuthenticationShared.ContentHashHeaderName, contentHashEncoded);
 
-        return handler;
-    }
+        // Generate the Authorization header
+        var stringToSign = HmacAuthenticationShared.CreateStringToSign(
+            method: context.Request.Method,
+            pathAndQuery: context.Request.Path + context.Request.QueryString,
+            headerValues: [context.Request.Host.ToString(), timestamp, contentHashEncoded]
+        );
 
-    private static string BuildAuthorizationHeader(
-        string clientId,
-        long timestamp,
-        IEnumerable<string> signedHeaders,
-        string signature)
-    {
-        var headers = string.Join(";", signedHeaders);
-        return $"HMAC {clientId}:{timestamp}:{headers}:{signature}";
+        var signature = HmacAuthenticationShared.GenerateSignature(stringToSign, secretKey);
+
+        context.Request.Headers.Authorization = HmacAuthenticationShared.GenerateAuthorizationHeader(
+            client: "client1",
+            signedHeaders: HmacAuthenticationShared.DefaultSignedHeaders,
+            signature: signature
+        );
+
+        return context;
     }
 
     [Fact]
-    public async Task HandleAuthenticateAsync_SuccessfulAuthentication_ReturnsSuccess()
+    public async Task HandleAuthenticateAsync_ReturnsSuccess_WhenSignatureIsValid()
     {
-        var clientId = "myClient";
-        var clientSecret = "superSecret";
-        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        var signedHeaders = new[] { "host" };
-        var method = "GET";
-        var path = "/api/test";
-        var query = "";
-        var body = "";
-
-        var canonicalHeaders = "host:header-value";
-        var stringToSign = HmacAuthenticationHandler.CreateStringToSign(method, new PathString(path), new QueryString(query), timestamp, canonicalHeaders, signedHeaders, body);
-        var signature = HmacAuthenticationHandler.GenerateHmacSignature(stringToSign, clientSecret);
-
-        var authorizationHeader = BuildAuthorizationHeader(clientId, timestamp, signedHeaders, signature);
-
-        var handler = CreateHandler(
-            authorizationHeader,
-            method,
-            path,
-            query,
-            body,
-            timestamp,
-            clientId,
-            clientSecret,
-            signedHeaders);
+        var handler = CreateHandler();
+        var context = CreateHttpContext();
+        await handler.InitializeAsync(_scheme, context);
 
         var result = await handler.AuthenticateAsync();
 
         Assert.True(result.Succeeded);
         Assert.NotNull(result.Principal);
-        Assert.Equal(clientId, result.Principal.Identity?.Name);
+        Assert.IsType<ClaimsPrincipal>(result.Principal);
     }
 
     [Fact]
-    public async Task HandleAuthenticateAsync_MissingAuthorizationHeader_ReturnsFail()
+    public async Task HandleAuthenticateAsync_ReturnsFail_WhenSignatureIsInvalid()
     {
-        var handler = CreateHandler("");
-        var result = await handler.AuthenticateAsync();
-        Assert.False(result.Succeeded);
-        Assert.Contains("Invalid Authorization header", result.Failure?.Message);
-    }
-
-    [Fact]
-    public async Task HandleAuthenticateAsync_InvalidSignature_ReturnsFail()
-    {
-        var clientId = "myClient";
-        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        var signedHeaders = new[] { "host" };
-        var authorizationHeader = BuildAuthorizationHeader(clientId, timestamp, signedHeaders, "invalidsignature");
-
-        var handler = CreateHandler(
-            authorizationHeader,
-            clientId: clientId,
-            signedHeaders: signedHeaders);
+        var handler = CreateHandler("Wrong-Key");
+        var context = CreateHttpContext(secretKey: "Test-HMAC-Key");
+        await handler.InitializeAsync(_scheme, context);
 
         var result = await handler.AuthenticateAsync();
+
         Assert.False(result.Succeeded);
-        Assert.Contains("Invalid signature", result.Failure?.Message);
+        Assert.Equal("Invalid signature", result.Failure?.Message);
     }
 
     [Fact]
-    public async Task HandleAuthenticateAsync_ExpiredTimestamp_ReturnsFail()
+    public async Task HandleAuthenticateAsync_ReturnsFail_WhenAuthorizationHeaderMissing()
     {
-        var clientId = "myClient";
-        var clientSecret = "superSecret";
-        var timestamp = DateTimeOffset.UtcNow.AddMinutes(-30).ToUnixTimeSeconds();
-        var signedHeaders = new[] { "host" };
-        var method = "GET";
-        var path = "/api/test";
-        var query = "";
-        var body = "";
+        var handler = CreateHandler();
+        var context = CreateHttpContext();
 
-        var canonicalHeaders = "host:header-value";
-        var stringToSign = HmacAuthenticationHandler.CreateStringToSign(method, new PathString(path), new QueryString(query), timestamp, canonicalHeaders, signedHeaders, body);
-        var signature = HmacAuthenticationHandler.GenerateHmacSignature(stringToSign, clientSecret);
+        // Remove Authorization header to simulate missing header
+        context.Request.Headers.Remove("Authorization");
 
-        var authorizationHeader = BuildAuthorizationHeader(clientId, timestamp, signedHeaders, signature);
-
-        var handler = CreateHandler(
-            authorizationHeader,
-            method,
-            path,
-            query,
-            body,
-            timestamp,
-            clientId,
-            clientSecret,
-            signedHeaders);
+        await handler.InitializeAsync(_scheme, context);
 
         var result = await handler.AuthenticateAsync();
+
         Assert.False(result.Succeeded);
-        Assert.Contains("timestamp is invalid or expired", result.Failure?.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("Invalid Authorization header", result.Failure?.Message);
     }
 
     [Fact]
-    public async Task HandleAuthenticateAsync_InvalidClientId_ReturnsFail()
+    public async Task HandleAuthenticateAsync_ReturnsFail_WhenTimestampExpired()
     {
-        var clientId = "unknownClient";
-        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        var signedHeaders = new[] { "host" };
-        var authorizationHeader = BuildAuthorizationHeader(clientId, timestamp, signedHeaders, "signature");
+        var handler = CreateHandler();
+        var context = CreateHttpContext();
 
-        var handler = CreateHandler(
-            authorizationHeader,
-            clientId: clientId,
-            clientSecret: "",
-            signedHeaders: signedHeaders);
+        // Set timestamp to 10 minutes ago (assuming default tolerance is 5)
+        var expiredTimestamp = DateTimeOffset.UtcNow.AddMinutes(-10).ToUnixTimeSeconds().ToString();
+        context.Request.Headers[HmacAuthenticationShared.TimeStampHeaderName] = expiredTimestamp;
+
+        await handler.InitializeAsync(_scheme, context);
 
         var result = await handler.AuthenticateAsync();
+
         Assert.False(result.Succeeded);
-        Assert.Contains("Invalid client ID", result.Failure?.Message);
+        Assert.Equal("Invalid timestamp header", result.Failure?.Message);
     }
 
     [Fact]
-    public async Task HandleAuthenticateAsync_EmptySignedHeaders_AllowsEmptyCanonicalHeaders()
+    public async Task HandleAuthenticateAsync_ReturnsFail_WhenContentHashHeaderMissing()
     {
-        var clientId = "myClient";
-        var clientSecret = "superSecret";
-        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        var signedHeaders = Array.Empty<string>();
-        var method = "POST";
-        var path = "/api/emptyheaders";
-        var query = "?foo=bar";
-        var body = "test-body";
+        var handler = CreateHandler();
+        var context = CreateHttpContext();
 
-        var canonicalHeaders = "";
-        var stringToSign = HmacAuthenticationHandler.CreateStringToSign(method, new PathString(path), new QueryString(query), timestamp, canonicalHeaders, signedHeaders, body);
-        var signature = HmacAuthenticationHandler.GenerateHmacSignature(stringToSign, clientSecret);
+        // Remove ContentHash header to simulate missing header
+        context.Request.Headers.Remove(HmacAuthenticationShared.ContentHashHeaderName);
 
-        var authorizationHeader = BuildAuthorizationHeader(clientId, timestamp, signedHeaders, signature);
+        await handler.InitializeAsync(_scheme, context);
 
-        var handler = CreateHandler(
-            authorizationHeader,
-            method,
-            path,
-            query,
-            body,
-            timestamp,
-            clientId,
-            clientSecret,
-            signedHeaders);
+        var result = await handler.AuthenticateAsync();
+
+        Assert.False(result.Succeeded);
+        Assert.Equal("Invalid content hash header", result.Failure?.Message);
+    }
+
+    [Fact]
+    public async Task HandleAuthenticateAsync_ReturnsSuccess_WithValidJsonContent()
+    {
+        var handler = CreateHandler();
+
+        var jsonContent ="""{ "username": "testuser", "password": "secret" }""";
+
+        var context = CreateHttpContext(
+            method: "POST",
+            url: "/api/login",
+            content: jsonContent,
+            secretKey: "Test-HMAC-Key"
+        );
+        context.Request.ContentType = "application/json";
+
+        await handler.InitializeAsync(_scheme, context);
 
         var result = await handler.AuthenticateAsync();
 
         Assert.True(result.Succeeded);
         Assert.NotNull(result.Principal);
-        Assert.Equal(clientId, result.Principal.Identity?.Name);
+        Assert.IsType<ClaimsPrincipal>(result.Principal);
     }
 
     [Fact]
-    public async Task HandleAuthenticateAsync_RequestBodyIsReadCorrectly()
+    public async Task HandleAuthenticateAsync_ReturnsSuccess_WithJsonContentAndQueryString()
     {
-        var clientId = "myClient";
-        var clientSecret = "superSecret";
-        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        var signedHeaders = new[] { "host" };
-        var method = "POST";
-        var path = "/api/body";
-        var query = "";
-        var body = "request-body-content";
+        var handler = CreateHandler();
 
-        var canonicalHeaders = "host:header-value";
-        var stringToSign = HmacAuthenticationHandler.CreateStringToSign(method, new PathString(path), new QueryString(query), timestamp, canonicalHeaders, signedHeaders, body);
-        var signature = HmacAuthenticationHandler.GenerateHmacSignature(stringToSign, clientSecret);
+        var jsonContent = """{ "username": "testuser", "password": "secret" }""";
 
-        var authorizationHeader = BuildAuthorizationHeader(clientId, timestamp, signedHeaders, signature);
+        var context = CreateHttpContext(
+            method: "POST",
+            url: "/api/login?returnUrl=%2Fdashboard",
+            content: jsonContent,
+            secretKey: "Test-HMAC-Key"
+        );
+        context.Request.ContentType = "application/json";
 
-        var handler = CreateHandler(
-            authorizationHeader,
-            method,
-            path,
-            query,
-            body,
-            timestamp,
-            clientId,
-            clientSecret,
-            signedHeaders);
+        await handler.InitializeAsync(_scheme, context);
 
         var result = await handler.AuthenticateAsync();
 
         Assert.True(result.Succeeded);
         Assert.NotNull(result.Principal);
-        Assert.Equal(clientId, result.Principal.Identity?.Name);
+        Assert.IsType<ClaimsPrincipal>(result.Principal);
     }
 
     [Fact]
-    public void CreateStringToSign_ProducesExpectedFormat()
+    public async Task HandleAuthenticateAsync_ReturnsFail_WhenTimestampHeaderMissing()
     {
-        // Arrange
-        var method = "POST";
-        var path = new PathString("/api/resource");
-        var query = new QueryString("?foo=bar&baz=qux");
-        long timestamp = 1722450000;
-        var canonicalHeaders = "host:example.com\ncontent-type:application/json";
-        var signedHeaders = new[] { "host", "content-type" };
-        var body = "{\"data\":42}";
+        var handler = CreateHandler();
+        var context = CreateHttpContext();
 
-        // Act
-        var result = HmacAuthenticationHandler.CreateStringToSign(
-            method,
-            path,
-            query,
-            timestamp,
-            canonicalHeaders,
-            signedHeaders,
-            body);
+        // Remove Timestamp header to simulate missing header
+        context.Request.Headers.Remove(HmacAuthenticationShared.TimeStampHeaderName);
 
-        // Assert
-        var expected =
-            "POST\n" +
-            "/api/resource?foo=bar&baz=qux\n" +
-            "1722450000\n" +
-            "host:example.com\ncontent-type:application/json\n" +
-            "host;content-type\n" +
-            "{\"data\":42}";
-        Assert.Equal(expected, result);
+        await handler.InitializeAsync(_scheme, context);
+
+        var result = await handler.AuthenticateAsync();
+
+        Assert.False(result.Succeeded);
+        Assert.Equal("Invalid timestamp header", result.Failure?.Message);
     }
 
     [Fact]
-    public void CreateStringToSign_EmptyHeadersAndBody_ProducesExpectedFormat()
+    public async Task HandleAuthenticateAsync_ReturnsFail_WhenAuthorizationHeaderFormatIsInvalid()
     {
-        // Arrange
-        var method = "GET";
-        var path = new PathString("/api/empty");
-        var query = QueryString.Empty;
-        long timestamp = 1234567890;
-        var canonicalHeaders = "";
-        var signedHeaders = Array.Empty<string>();
-        var body = "";
+        var handler = CreateHandler();
+        var context = CreateHttpContext();
 
-        // Act
-        var result = HmacAuthenticationHandler.CreateStringToSign(
-            method,
-            path,
-            query,
-            timestamp,
-            canonicalHeaders,
-            signedHeaders,
-            body);
+        // Set Authorization header to an invalid format
+        context.Request.Headers.Authorization = "InvalidFormat";
 
-        // Assert
-        var expected =
-            "GET\n" +
-            "/api/empty\n" +
-            "1234567890\n" +
-            "\n" +
-            "\n";
-        Assert.Equal(expected, result);
+        await handler.InitializeAsync(_scheme, context);
+
+        var result = await handler.AuthenticateAsync();
+
+        Assert.False(result.Succeeded);
+        Assert.Equal("Invalid Authorization header: InvalidSchema", result.Failure?.Message);
     }
 
     [Fact]
-    public void GenerateHmacSignature_ProducesExpectedSignature()
+    public async Task HandleAuthenticateAsync_ReturnsFail_WhenContentHashDoesNotMatch()
     {
-        // Arrange
-        var stringToSign = "POST\n/api/resource?foo=bar\n1722450000\nhost:example.com\nhost\n{\"data\":42}";
-        var secretKey = "superSecret";
+        var handler = CreateHandler();
 
-        // Act
-        var signature = HmacAuthenticationHandler.GenerateHmacSignature(stringToSign, secretKey);
+        var jsonContent = """{ "username": "testuser", "password": "secret" }""";
 
-        // Assert
-        // Compute expected signature using .NET's HMACSHA256
-        var expectedBytes = new System.Security.Cryptography.HMACSHA256(Encoding.UTF8.GetBytes(secretKey))
-            .ComputeHash(Encoding.UTF8.GetBytes(stringToSign));
-        var expectedSignature = Convert.ToBase64String(expectedBytes);
+        var context = CreateHttpContext(
+            method: "POST",
+            url: "/api/login",
+            content: jsonContent,
+            secretKey: "Test-HMAC-Key"
+        );
+        context.Request.ContentType = "application/json";
 
-        Assert.Equal(expectedSignature, signature);
+        // Overwrite the content hash header with an incorrect value
+        context.Request.Headers[HmacAuthenticationShared.ContentHashHeaderName] = Convert.ToBase64String(Encoding.UTF8.GetBytes("wrong-hash"));
+
+        await handler.InitializeAsync(_scheme, context);
+
+        var result = await handler.AuthenticateAsync();
+
+        Assert.False(result.Succeeded);
+        Assert.Equal("Invalid content hash header", result.Failure?.Message);
     }
+}
 
-    [Fact]
-    public void GenerateHmacSignature_EmptyStringAndKey_ProducesExpectedSignature()
-    {
-        // Arrange
-        var stringToSign = "";
-        var secretKey = "";
 
-        // Act
-        var signature = HmacAuthenticationHandler.GenerateHmacSignature(stringToSign, secretKey);
+public class TestOptionsMonitor(HmacAuthenticationSchemeOptions options) : IOptionsMonitor<HmacAuthenticationSchemeOptions>
+{
+    public HmacAuthenticationSchemeOptions CurrentValue { get; } = options;
 
-        // Assert
-        var expectedBytes = new System.Security.Cryptography.HMACSHA256(Array.Empty<byte>())
-            .ComputeHash(Array.Empty<byte>());
-        var expectedSignature = Convert.ToBase64String(expectedBytes);
+    public HmacAuthenticationSchemeOptions Get(string? name) => CurrentValue;
 
-        Assert.Equal(expectedSignature, signature);
-    }
+    public IDisposable? OnChange(Action<HmacAuthenticationSchemeOptions, string?> listener) => null;
+}
+
+public class TestHmacKeyProvider(string key = "Test-HMAC-Key") : IHmacKeyProvider
+{
+    public ValueTask<string?> GetSecretAsync(string client) => new(key);
 }

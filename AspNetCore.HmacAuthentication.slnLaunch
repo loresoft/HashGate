@@ -1,0 +1,15 @@
+[
+  {
+    "Name": "Sample",
+    "Projects": [
+      {
+        "Path": "samples\\Sample.MinimalApi\\Sample.MinimalApi.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "samples\\Sample.Client\\Sample.Client.csproj",
+        "Action": "Start"
+      }
+    ]
+  }
+]

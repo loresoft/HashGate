@@ -1,0 +1,15 @@
+@baseUrl = https://localhost:7000
+
+
+###
+
+GET {{baseUrl}}/hello
+Accept: application/json
+Content-Type: application/json
+
+###
+
+GET {{baseUrl}}/weather
+Accept: application/json
+Content-Type: application/json
+

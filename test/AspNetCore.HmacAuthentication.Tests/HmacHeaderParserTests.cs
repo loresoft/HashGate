@@ -3,208 +3,101 @@ namespace AspNetCore.HmacAuthentication.Tests;
 public class HmacHeaderParserTests
 {
     [Fact]
-    public void TryParse_ValidHeader_WithSignedHeaders_ReturnsSuccess()
+    public void TryParse_ValidHeaderWithPrefix_ReturnsNoneAndParsesCorrectly()
     {
-        var header = "HMAC client1:1722450000:host;date;x-api-key:abcdef1234567890";
-        var result = HmacHeaderParser.TryParse(header);
+        var input = "HMAC Client=abc123&SignedHeaders=host;date&Signature=xyz789";
+        var result = HmacHeaderParser.TryParse(input, out var header);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal("client1", result.ClientId);
-        Assert.Equal(1722450000, result.Timestamp);
-        Assert.Equal(["host", "date", "x-api-key"], result.SignedHeaders);
-        Assert.Equal("abcdef1234567890", result.Signature);
-        Assert.Null(result.Error);
+        Assert.Equal(HmacHeaderError.None, result);
+        Assert.Equal("abc123", header.Client);
+        Assert.Equal(["host", "date"], header.SignedHeaders);
+        Assert.Equal("xyz789", header.Signature);
     }
 
     [Fact]
-    public void TryParse_ValidHeader_EmptySignedHeaders_ReturnsSuccess()
+    public void TryParse_ValidHeaderWithoutPrefix_ReturnsNoneAndParsesCorrectly()
     {
-        var header = "HMAC client2:1722450001::sigvalue";
-        var result = HmacHeaderParser.TryParse(header);
+        var input = "Client=abc123&SignedHeaders=host;date&Signature=xyz789";
+        var result = HmacHeaderParser.TryParse(input, out var header);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal("client2", result.ClientId);
-        Assert.Equal(1722450001, result.Timestamp);
-        Assert.Empty(result.SignedHeaders);
-        Assert.Equal("sigvalue", result.Signature);
-        Assert.Null(result.Error);
+        Assert.Equal(HmacHeaderError.None, result);
+        Assert.Equal("abc123", header.Client);
+        Assert.Equal(["host", "date"], header.SignedHeaders);
+        Assert.Equal("xyz789", header.Signature);
     }
 
     [Fact]
-    public void TryParse_HeaderTooShort_ReturnsTooShortError()
+    public void TryParse_MissingClient_ReturnsInvalidClients()
     {
-        var header = "HMA";
-        var result = HmacHeaderParser.TryParse(header);
+        var input = "SignedHeaders=host;date&Signature=xyz789";
+        var result = HmacHeaderParser.TryParse(input, out var header);
 
-        Assert.False(result.IsSuccess);
-        Assert.Equal(HmacHeaderError.TooShort, result.Error);
+        Assert.Equal(HmacHeaderError.InvalidHeaderFormat, result);
     }
 
     [Fact]
-    public void TryParse_InvalidPrefix_ReturnsInvalidPrefixError()
+    public void TryParse_MissingSignedHeaders_ReturnsInvalidSignedHeaders()
     {
-        var header = "HMIC client:1::sig";
-        var result = HmacHeaderParser.TryParse(header);
+        var input = "Client=abc123&Signature=xyz789";
+        var result = HmacHeaderParser.TryParse(input, out var header);
 
-        Assert.False(result.IsSuccess);
-        Assert.Equal(HmacHeaderError.InvalidPrefix, result.Error);
+        Assert.Equal(HmacHeaderError.InvalidHeaderFormat, result);
     }
 
     [Fact]
-    public void TryParse_MissingDelimiters_ReturnsMissingDelimitersError()
+    public void TryParse_MissingSignature_ReturnsInvalidSignature()
     {
-        var header = "HMAC client1-1722450000-host;date;x-api-key-abcdef";
-        var result = HmacHeaderParser.TryParse(header);
+        var input = "Client=abc123&SignedHeaders=host;date";
+        var result = HmacHeaderParser.TryParse(input, out var header);
 
-        Assert.False(result.IsSuccess);
-        Assert.Equal(HmacHeaderError.MissingDelimiters, result.Error);
+        Assert.Equal(HmacHeaderError.InvalidHeaderFormat, result);
     }
 
     [Fact]
-    public void TryParse_EmptyClientId_ReturnsEmptyClientIdError()
+    public void TryParse_EmptyInput_ReturnsInvalidHeaderFormat()
     {
-        var header = "HMAC :1722450000:host;date:x";
-        var result = HmacHeaderParser.TryParse(header);
+        var input = "";
+        var result = HmacHeaderParser.TryParse(input, out var header);
 
-        Assert.False(result.IsSuccess);
-        Assert.Equal(HmacHeaderError.EmptyClientId, result.Error);
+        Assert.Equal(HmacHeaderError.InvalidHeaderFormat, result);
     }
 
     [Fact]
-    public void TryParse_EmptyTimestamp_ReturnsEmptyTimestampError()
+    public void TryParse_ValidHeader_OutOfOrder_ReturnsNoneAndParsesCorrectly()
     {
-        var header = "HMAC client1::host;date:x";
-        var result = HmacHeaderParser.TryParse(header);
+        var input = "Signature=xyz789&Client=abc123&SignedHeaders=host;date";
+        var result = HmacHeaderParser.TryParse(input, out var header);
 
-        Assert.False(result.IsSuccess);
-        Assert.Equal(HmacHeaderError.EmptyTimestamp, result.Error);
+        Assert.Equal(HmacHeaderError.None, result);
+        Assert.Equal("abc123", header.Client);
+        Assert.Equal(["host", "date"], header.SignedHeaders);
+        Assert.Equal("xyz789", header.Signature);
     }
 
     [Fact]
-    public void TryParse_InvalidTimestamp_ReturnsInvalidTimestampError()
+    public void TryParse_EmptyClient_ReturnsInvalidClients()
     {
-        var header = "HMAC client1:abc:host;date:x";
-        var result = HmacHeaderParser.TryParse(header);
+        var input = "Client=&SignedHeaders=host;date&Signature=xyz789";
+        var result = HmacHeaderParser.TryParse(input, out var header);
 
-        Assert.False(result.IsSuccess);
-        Assert.Equal(HmacHeaderError.InvalidTimestamp, result.Error);
+        Assert.Equal(HmacHeaderError.InvalidClients, result);
     }
 
     [Fact]
-    public void TryParse_EmptySignature_ReturnsEmptySignatureError()
+    public void TryParse_EmptySignedHeaders_ReturnsInvalidSignedHeaders()
     {
-        var header = "HMAC client1:1722450000:host;date:";
-        var result = HmacHeaderParser.TryParse(header);
+        var input = "Client=abc123&SignedHeaders=&Signature=xyz789";
+        var result = HmacHeaderParser.TryParse(input, out var header);
 
-        Assert.False(result.IsSuccess);
-        Assert.Equal(HmacHeaderError.EmptySignature, result.Error);
+        Assert.Equal(HmacHeaderError.InvalidSignedHeaders, result);
     }
 
     [Fact]
-    public void TryParse_SignedHeadersWithWhitespace_TrimmedCorrectly()
+    public void TryParse_EmptySignature_ReturnsInvalidSignature()
     {
-        var header = "HMAC client1:1722450000: host ; date ; :sig";
-        var result = HmacHeaderParser.TryParse(header);
+        var input = "Client=abc123&SignedHeaders=host;date&Signature=";
+        var result = HmacHeaderParser.TryParse(input, out var header);
 
-        Assert.True(result.IsSuccess);
-        Assert.Equal(["host", "date"], result.SignedHeaders);
-    }
-
-    [Fact]
-    public void TryParse_SignedHeaders_AllWhitespace_Ignored()
-    {
-        var header = "HMAC client1:1722450000:   ;   ;   :sig";
-        var result = HmacHeaderParser.TryParse(header);
-
-        Assert.True(result.IsSuccess);
-        Assert.Empty(result.SignedHeaders);
-    }
-
-    [Fact]
-    public void TryParse_SignedHeaders_EmptyBetweenSemicolons_Ignored()
-    {
-        var header = "HMAC client1:1722450000:host;;date;;;x-api-key:sig";
-        var result = HmacHeaderParser.TryParse(header);
-
-        Assert.True(result.IsSuccess);
-        Assert.Equal(["host", "date", "x-api-key"], result.SignedHeaders);
-    }
-
-    [Fact]
-    public void TryParse_ValidHeader_WithLongSignature_ReturnsSuccess()
-    {
-        var signature = new string('a', 128);
-        var header = $"HMAC client1:1722450000:host;date;key:{signature}";
-        var result = HmacHeaderParser.TryParse(header);
-
-        Assert.True(result.IsSuccess);
-        Assert.Equal(signature, result.Signature);
-    }
-
-    [Fact]
-    public void TryParse_HeaderWithExtraSpacesInPrefix_ReturnsInvalidPrefix()
-    {
-        var header = "HMAC  client1:1722450000:host;date:x";
-        var result = HmacHeaderParser.TryParse(header);
-
-        Assert.True(result.IsSuccess);
-        Assert.Equal("client1", result.ClientId);
-        Assert.Equal(1722450000, result.Timestamp);
-        Assert.Equal(["host", "date"], result.SignedHeaders);
-        Assert.Equal("x", result.Signature);
-    }
-
-    [Fact]
-    public void TryParse_HeaderWithNonAsciiCharacters_ParsesCorrectly()
-    {
-        var header = "HMAC clïënt:1722450000:host;däte;x-api-key:sîgnâture";
-        var result = HmacHeaderParser.TryParse(header);
-
-        Assert.True(result.IsSuccess);
-        Assert.Equal("clïënt", result.ClientId);
-        Assert.Equal(["host", "däte", "x-api-key"], result.SignedHeaders);
-        Assert.Equal("sîgnâture", result.Signature);
-    }
-
-    [Fact]
-    public void TryParse_HeaderWithNegativeTimestamp_ReturnsInvalidTimestamp()
-    {
-        var header = "HMAC client1:-123:host;date:x";
-        var result = HmacHeaderParser.TryParse(header);
-
-        // Negative timestamps are technically valid for Unix time, but if you want to treat them as invalid, update the parser.
-        // This test expects the current implementation (which allows negative values).
-        Assert.True(result.IsSuccess);
-        Assert.Equal(-123, result.Timestamp);
-    }
-
-    [Fact]
-    public void TryParse_HeaderWithMaxLongTimestamp_ReturnsSuccess()
-    {
-        var header = $"HMAC client1:{long.MaxValue}:host:x";
-        var result = HmacHeaderParser.TryParse(header);
-
-        Assert.True(result.IsSuccess);
-        Assert.Equal(long.MaxValue, result.Timestamp);
-    }
-
-    [Fact]
-    public void TryParse_HeaderWithMinLongTimestamp_ReturnsSuccess()
-    {
-        var header = $"HMAC client1:{long.MinValue}:host:x";
-        var result = HmacHeaderParser.TryParse(header);
-
-        Assert.True(result.IsSuccess);
-        Assert.Equal(long.MinValue, result.Timestamp);
-    }
-
-    [Fact]
-    public void TryParse_HeaderWithEmptyString_ReturnsTooShortError()
-    {
-        var header = "";
-        var result = HmacHeaderParser.TryParse(header);
-
-        Assert.False(result.IsSuccess);
-        Assert.Equal(HmacHeaderError.TooShort, result.Error);
+        Assert.Equal(HmacHeaderError.InvalidSignature, result);
     }
 }

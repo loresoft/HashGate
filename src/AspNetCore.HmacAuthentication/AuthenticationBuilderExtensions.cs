@@ -33,7 +33,7 @@ public static class AuthenticationBuilderExtensions
     /// <param name="builder">The authentication builder.</param>
     /// <returns>The <see cref="AuthenticationBuilder"/> for chaining.</returns>
     public static AuthenticationBuilder AddHmacAuthentication(this AuthenticationBuilder builder)
-        => AddHmacAuthentication<HmacKeyProvider>(builder, HmacAuthenticationOptions.DefaultScheme, null, null);
+        => AddHmacAuthentication<HmacKeyProvider>(builder, HmacAuthenticationSchemeOptions.DefaultScheme, null, null);
 
     /// <summary>
     /// Adds HMAC authentication using the default <see cref="HmacKeyProvider"/> and a custom authentication scheme.
@@ -48,10 +48,10 @@ public static class AuthenticationBuilderExtensions
     /// Adds HMAC authentication using the default <see cref="HmacKeyProvider"/> and the default scheme, with custom options configuration.
     /// </summary>
     /// <param name="builder">The authentication builder.</param>
-    /// <param name="configureOptions">An action to configure <see cref="HmacAuthenticationOptions"/>.</param>
+    /// <param name="configureOptions">An action to configure <see cref="HmacAuthenticationSchemeOptions"/>.</param>
     /// <returns>The <see cref="AuthenticationBuilder"/> for chaining.</returns>
-    public static AuthenticationBuilder AddHmacAuthentication(this AuthenticationBuilder builder, Action<HmacAuthenticationOptions>? configureOptions)
-        => AddHmacAuthentication<HmacKeyProvider>(builder, HmacAuthenticationOptions.DefaultScheme, null, configureOptions);
+    public static AuthenticationBuilder AddHmacAuthentication(this AuthenticationBuilder builder, Action<HmacAuthenticationSchemeOptions>? configureOptions)
+        => AddHmacAuthentication<HmacKeyProvider>(builder, HmacAuthenticationSchemeOptions.DefaultScheme, null, configureOptions);
 
     /// <summary>
     /// Adds HMAC authentication using a custom <see cref="IHmacKeyProvider"/> and the default scheme.
@@ -61,7 +61,7 @@ public static class AuthenticationBuilderExtensions
     /// <returns>The <see cref="AuthenticationBuilder"/> for chaining.</returns>
     public static AuthenticationBuilder AddHmacAuthentication<TProvider>(this AuthenticationBuilder builder)
         where TProvider : class, IHmacKeyProvider
-        => AddHmacAuthentication<TProvider>(builder, HmacAuthenticationOptions.DefaultScheme, null, null);
+        => AddHmacAuthentication<TProvider>(builder, HmacAuthenticationSchemeOptions.DefaultScheme, null, null);
 
     /// <summary>
     /// Adds HMAC authentication using a custom <see cref="IHmacKeyProvider"/> and a custom authentication scheme.
@@ -79,11 +79,11 @@ public static class AuthenticationBuilderExtensions
     /// </summary>
     /// <typeparam name="TProvider">The type of the <see cref="IHmacKeyProvider"/> to use.</typeparam>
     /// <param name="builder">The authentication builder.</param>
-    /// <param name="configureOptions">An action to configure <see cref="HmacAuthenticationOptions"/>.</param>
+    /// <param name="configureOptions">An action to configure <see cref="HmacAuthenticationSchemeOptions"/>.</param>
     /// <returns>The <see cref="AuthenticationBuilder"/> for chaining.</returns>
-    public static AuthenticationBuilder AddHmacAuthentication<TProvider>(this AuthenticationBuilder builder, Action<HmacAuthenticationOptions>? configureOptions)
+    public static AuthenticationBuilder AddHmacAuthentication<TProvider>(this AuthenticationBuilder builder, Action<HmacAuthenticationSchemeOptions>? configureOptions)
         where TProvider : class, IHmacKeyProvider
-        => AddHmacAuthentication<TProvider>(builder, HmacAuthenticationOptions.DefaultScheme, null, configureOptions);
+        => AddHmacAuthentication<TProvider>(builder, HmacAuthenticationSchemeOptions.DefaultScheme, null, configureOptions);
 
     /// <summary>
     /// Adds HMAC authentication using a custom <see cref="IHmacKeyProvider"/>, authentication scheme, display name, and options configuration.
@@ -92,16 +92,16 @@ public static class AuthenticationBuilderExtensions
     /// <param name="builder">The authentication builder.</param>
     /// <param name="authenticationScheme">The authentication scheme name.</param>
     /// <param name="displayName">The display name for the authentication handler.</param>
-    /// <param name="configureOptions">An action to configure <see cref="HmacAuthenticationOptions"/>.</param>
+    /// <param name="configureOptions">An action to configure <see cref="HmacAuthenticationSchemeOptions"/>.</param>
     /// <returns>The <see cref="AuthenticationBuilder"/> for chaining.</returns>
-    public static AuthenticationBuilder AddHmacAuthentication<TProvider>(this AuthenticationBuilder builder, string authenticationScheme, string? displayName, Action<HmacAuthenticationOptions>? configureOptions)
+    public static AuthenticationBuilder AddHmacAuthentication<TProvider>(this AuthenticationBuilder builder, string authenticationScheme, string? displayName, Action<HmacAuthenticationSchemeOptions>? configureOptions)
         where TProvider : class, IHmacKeyProvider
     {
         ArgumentNullException.ThrowIfNull(builder);
 
-        builder.Services.AddOptions<HmacAuthenticationOptions>(authenticationScheme);
+        builder.Services.AddOptions<HmacAuthenticationSchemeOptions>(authenticationScheme);
         builder.Services.AddHmacAuthentication<TProvider>();
 
-        return builder.AddScheme<HmacAuthenticationOptions, HmacAuthenticationHandler>(authenticationScheme, displayName, configureOptions);
+        return builder.AddScheme<HmacAuthenticationSchemeOptions, HmacAuthenticationHandler>(authenticationScheme, displayName, configureOptions);
     }
 }
