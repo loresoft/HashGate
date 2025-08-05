@@ -102,7 +102,7 @@ class SampleApp {
      * @param {Response} response - Fetch response
      */
     async outputResponse(response) {
-        console.log(`✓ ${response.status} ${response.statusText}`);
+        console.log(`${response.status} ${response.statusText}`);
 
         const contentType = response.headers.get('content-type');
         let responseText = await response.text();
