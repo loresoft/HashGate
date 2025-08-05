@@ -1,4 +1,4 @@
-namespace AspNetCore.HmacAuthentication;
+namespace HashGate.AspNetCore;
 
 /// <summary>
 /// Represents a provider for retrieving the shared HMAC secret associated with a client identifier.

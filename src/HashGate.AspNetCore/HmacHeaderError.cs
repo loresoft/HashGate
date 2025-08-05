@@ -1,4 +1,4 @@
-namespace AspNetCore.HmacAuthentication;
+namespace HashGate.AspNetCore;
 
 /// <summary>
 /// Represents possible errors encountered when parsing an HMAC authentication header.

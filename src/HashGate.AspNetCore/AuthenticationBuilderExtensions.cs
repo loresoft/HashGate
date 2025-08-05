@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace AspNetCore.HmacAuthentication;
+namespace HashGate.AspNetCore;
 
 /// <summary>
 /// Extension methods for registering HMAC authentication with the <see cref="AuthenticationBuilder"/>.

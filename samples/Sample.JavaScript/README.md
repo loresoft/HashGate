@@ -1,6 +1,6 @@
 # JavaScript HMAC Authentication Sample Client
 
-This sample demonstrates how to implement HMAC authentication in JavaScript/Node.js for communicating with an ASP.NET Core API using the `AspNetCore.HmacAuthentication` library.
+This sample demonstrates how to implement HMAC authentication in JavaScript/Node.js for communicating with an ASP.NET Core API using the `HashGate.AspNetCore` library.
 
 ## Prerequisites
 
@@ -155,4 +155,4 @@ console.log(result);
 
 - [Sample.Client](../Sample.Client/) - .NET client implementation
 - [Sample.MinimalApi](../Sample.MinimalApi/) - ASP.NET Core API server
-- [AspNetCore.HmacAuthentication](../../src/AspNetCore.HmacAuthentication/) - Core authentication library
+- [HashGate.AspNetCore](../../src/HashGate.AspNetCore/) - Core authentication library

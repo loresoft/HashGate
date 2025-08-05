@@ -2,7 +2,7 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 
-namespace AspNetCore.HmacAuthentication.Tests;
+namespace HashGate.AspNetCore.Tests;
 
 public class HmacAuthenticationSharedTests
 {

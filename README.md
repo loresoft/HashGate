@@ -1,12 +1,12 @@
-# AspNetCore.HmacAuthentication
+# HashGate
 
 A HMAC (Hash-based Message Authentication Code) authentication system for ASP.NET Core applications. This library provides both server-side authentication middleware and client-side HTTP handlers for secure API communication.
 
-[![Build Project](https://github.com/loresoft/AspNetCore.HmacAuthentication/actions/workflows/dotnet.yml/badge.svg)](https://github.com/loresoft/AspNetCore.HmacAuthentication/actions/workflows/dotnet.yml)
+[![Build Project](https://github.com/loresoft/HashGate/actions/workflows/dotnet.yml/badge.svg)](https://github.com/loresoft/HashGate/actions/workflows/dotnet.yml)
 
-[![Coverage Status](https://coveralls.io/repos/github/loresoft/AspNetCore.HmacAuthentication/badge.svg?branch=main)](https://coveralls.io/github/loresoft/AspNetCore.HmacAuthentication?branch=main)
+[![Coverage Status](https://coveralls.io/repos/github/loresoft/HashGate/badge.svg?branch=main)](https://coveralls.io/github/loresoft/HashGate?branch=main)
 
-[![AspNetCore.HmacAuthentication](https://img.shields.io/nuget/v/AspNetCore.HmacAuthentication.svg)](https://www.nuget.org/packages/AspNetCore.HmacAuthentication/)
+[![HashGate.AspNetCore](https://img.shields.io/nuget/v/HashGate.svg)](https://www.nuget.org/packages/HashGate/)
 
 ## Features
 
@@ -70,13 +70,13 @@ Install the NuGet packages for your server and client projects:
 ### Server Package (ASP.NET Core)
 
 ```bash
-dotnet add package AspNetCore.HmacAuthentication
+dotnet add package HashGate.AspNetCore
 ```
 
 ### Client Package (.NET HttpClient)
 
 ```bash
-dotnet add package AspNetCore.HmacAuthentication.Client
+dotnet add package HashGate.HttpClient
 ```
 
 ## Quick Start
@@ -84,7 +84,7 @@ dotnet add package AspNetCore.HmacAuthentication.Client
 ### Server Setup (ASP.NET Core)
 
 ```csharp
-using AspNetCore.HmacAuthentication;
+using HashGate.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -121,7 +121,7 @@ app.Run();
 ### Client Setup (.NET HttpClient)
 
 ```csharp
-using AspNetCore.HmacAuthentication.Client;
+using HashGate.HttpClient;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 

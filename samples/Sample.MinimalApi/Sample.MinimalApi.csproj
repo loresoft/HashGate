@@ -13,7 +13,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\AspNetCore.HmacAuthentication\AspNetCore.HmacAuthentication.csproj" />
+    <ProjectReference Include="..\..\src\HashGate.AspNetCore\HashGate.AspNetCore.csproj" />
     <ProjectReference Include="..\Sample.Shared\Sample.Shared.csproj" />
   </ItemGroup>
 

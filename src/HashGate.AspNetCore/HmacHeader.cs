@@ -1,4 +1,4 @@
-namespace AspNetCore.HmacAuthentication;
+namespace HashGate.AspNetCore;
 
 /// <summary>
 /// Represents the parsed components of an HMAC authentication header.

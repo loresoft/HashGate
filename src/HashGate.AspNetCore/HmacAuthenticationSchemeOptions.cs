@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Authentication;
 
 
-namespace AspNetCore.HmacAuthentication;
+namespace HashGate.AspNetCore;
 
 public class HmacAuthenticationSchemeOptions : AuthenticationSchemeOptions
 {

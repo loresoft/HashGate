@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace AspNetCore.HmacAuthentication.Client;
+namespace HashGate.HttpClient;
 
 /// <summary>
 /// Configuration options for HMAC authentication on the client side.

@@ -2,7 +2,7 @@ import crypto from 'crypto';
 
 /**
  * HMAC Authentication utilities for JavaScript clients
- * Based on AspNetCore.HmacAuthentication implementation
+ * Based on HashGate.AspNetCore implementation
  */
 export class HmacClient {
     /**

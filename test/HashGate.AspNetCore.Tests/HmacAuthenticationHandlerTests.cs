@@ -9,7 +9,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
-namespace AspNetCore.HmacAuthentication.Tests;
+namespace HashGate.AspNetCore.Tests;
 
 public class HmacAuthenticationHandlerTests
 {

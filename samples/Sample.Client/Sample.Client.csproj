@@ -14,7 +14,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\AspNetCore.HmacAuthentication.Client\AspNetCore.HmacAuthentication.Client.csproj" />
+    <ProjectReference Include="..\..\src\HashGate.HttpClient\HashGate.HttpClient.csproj" />
     <ProjectReference Include="..\Sample.Shared\Sample.Shared.csproj" />
   </ItemGroup>
 

@@ -1,6 +1,6 @@
 using System.Security.Claims;
 
-using AspNetCore.HmacAuthentication;
+using HashGate.AspNetCore;
 
 using Sample.Shared;
 

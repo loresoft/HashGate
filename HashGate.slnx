@@ -10,9 +10,9 @@
     <Project Path="samples/Sample.Shared/Sample.Shared.csproj" Id="29086de8-22c4-4617-ba32-163eaf428a61" />
   </Folder>
   <Folder Name="/Tests/">
-    <Project Path="test/AspNetCore.HmacAuthentication.Client.Tests/AspNetCore.HmacAuthentication.Client.Tests.csproj" Id="32212feb-7d5e-47f8-ac95-be9c18eb1117" />
-    <Project Path="test/AspNetCore.HmacAuthentication.Tests/AspNetCore.HmacAuthentication.Tests.csproj" Id="2bb16589-28e6-4334-aa6d-bf3c508b8a78" />
+    <Project Path="test/HashGate.HttpClient.Tests/HashGate.HttpClient.Tests.csproj" Id="32212feb-7d5e-47f8-ac95-be9c18eb1117" />
+    <Project Path="test/HashGate.AspNetCore.Tests/HashGate.AspNetCore.Tests.csproj" Id="2bb16589-28e6-4334-aa6d-bf3c508b8a78" />
   </Folder>
-  <Project Path="src/AspNetCore.HmacAuthentication.Client/AspNetCore.HmacAuthentication.Client.csproj" Id="72d24d10-3a61-47ae-8460-a7a50f2bb5b9" />
-  <Project Path="src/AspNetCore.HmacAuthentication/AspNetCore.HmacAuthentication.csproj" Id="15980cb6-86e2-4678-a29e-c74139684ce6" />
+  <Project Path="src/HashGate.HttpClient/HashGate.HttpClient.csproj" Id="72d24d10-3a61-47ae-8460-a7a50f2bb5b9" />
+  <Project Path="src/HashGate.AspNetCore/HashGate.AspNetCore.csproj" Id="15980cb6-86e2-4678-a29e-c74139684ce6" />
 </Solution>

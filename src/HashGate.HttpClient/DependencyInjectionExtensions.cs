@@ -1,6 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 
-namespace AspNetCore.HmacAuthentication.Client;
+namespace HashGate.HttpClient;
 
 /// <summary>
 /// Provides extension methods for configuring HMAC authentication services in the dependency injection container.
@@ -14,7 +14,7 @@ public static class DependencyInjectionExtensions
     /// </summary>
     /// <param name="services">The <see cref="IServiceCollection"/> to add the services to.</param>
     /// <param name="configure">
-    /// An optional action to configure the <see cref="HmacAuthenticationOptions"/>. 
+    /// An optional action to configure the <see cref="HmacAuthenticationOptions"/>.
     /// This allows for programmatic configuration in addition to configuration binding.
     /// If provided, this configuration will be applied after the configuration binding.
     /// </param>

@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Options;
 
-namespace AspNetCore.HmacAuthentication.Client;
+namespace HashGate.HttpClient;
 
 /// <summary>
 /// An HTTP message handler that automatically adds HMAC authentication headers to outgoing HTTP requests.

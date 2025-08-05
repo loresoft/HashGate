@@ -9,7 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="..\AspNetCore.HmacAuthentication\HmacAuthenticationShared.cs" Link="HmacAuthenticationShared.cs" />
+    <Compile Include="..\HashGate.AspNetCore\HmacAuthenticationShared.cs" Link="HmacAuthenticationShared.cs" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,4 +1,4 @@
-using AspNetCore.HmacAuthentication.Client;
+using HashGate.HttpClient;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;

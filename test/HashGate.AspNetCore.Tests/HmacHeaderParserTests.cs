@@ -1,4 +1,4 @@
-namespace AspNetCore.HmacAuthentication.Tests;
+namespace HashGate.AspNetCore.Tests;
 
 public class HmacHeaderParserTests
 {

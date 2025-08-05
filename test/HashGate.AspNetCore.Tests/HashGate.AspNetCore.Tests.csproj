@@ -23,7 +23,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\AspNetCore.HmacAuthentication\AspNetCore.HmacAuthentication.csproj" />
+    <ProjectReference Include="..\..\src\HashGate.AspNetCore\HashGate.AspNetCore.csproj" />
   </ItemGroup>
 
   <ItemGroup>

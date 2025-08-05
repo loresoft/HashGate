@@ -7,7 +7,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace AspNetCore.HmacAuthentication.Client;
+namespace HashGate.HttpClient;
 
 /// <summary>
 /// Provides extension methods for <see cref="HttpRequestMessage"/> to add HMAC authentication headers.

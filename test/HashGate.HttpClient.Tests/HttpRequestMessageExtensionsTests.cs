@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace AspNetCore.HmacAuthentication.Client.Tests;
+namespace HashGate.HttpClient.Tests;
 
 public class HttpRequestMessageExtensionsTests
 {
