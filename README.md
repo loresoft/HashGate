@@ -6,7 +6,12 @@ A HMAC (Hash-based Message Authentication Code) authentication system for ASP.NE
 
 [![Coverage Status](https://coveralls.io/repos/github/loresoft/HashGate/badge.svg?branch=main)](https://coveralls.io/github/loresoft/HashGate?branch=main)
 
-[![HashGate.AspNetCore](https://img.shields.io/nuget/v/HashGate.svg)](https://www.nuget.org/packages/HashGate/)
+## Packages
+
+| Package                                                                    | Version                                                                                                                 | Description                                                   |
+| -------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| [HashGate.AspNetCore](https://www.nuget.org/packages/HashGate.AspNetCore/) | [![NuGet](https://img.shields.io/nuget/v/HashGate.AspNetCore.svg)](https://www.nuget.org/packages/HashGate.AspNetCore/) | Server-side HMAC authentication for ASP.NET Core applications |
+| [HashGate.HttpClient](https://www.nuget.org/packages/HashGate.HttpClient/) | [![NuGet](https://img.shields.io/nuget/v/HashGate.HttpClient.svg)](https://www.nuget.org/packages/HashGate.HttpClient/) | Client-side HTTP message handler for HMAC authentication      |
 
 ## Features
 
@@ -127,10 +132,10 @@ app.Run();
 
 ```json
 {
-  "HmacSecrets": {
-    "MyClientId": "your-secret-key-here",
-    "AnotherClient": "another-secret-key"
-  }
+    "HmacSecrets": {
+        "MyClientId": "your-secret-key-here",
+        "AnotherClient": "another-secret-key"
+    }
 }
 ```
 
@@ -163,10 +168,10 @@ var response = await httpClient.GetAsync("/api/secure");
 
 ```json
 {
-  "HmacAuthentication": {
-    "Client": "MyClientId",
-    "Secret": "your-secret-key-here"
-  }
+    "HmacAuthentication": {
+        "Client": "MyClientId",
+        "Secret": "your-secret-key-here"
+    }
 }
 ```
 
