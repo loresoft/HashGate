@@ -1,6 +1,6 @@
 # HashGate
 
-A HMAC (Hash-based Message Authentication Code) authentication system for ASP.NET Core applications. This library provides both server-side authentication middleware and client-side HTTP handlers for secure API communication.
+A HMAC (Hash-based Message Authentication Code) authentication system for ASP.NET Core applications. This library provides both server-side authentication and client-side HTTP handlers for secure API communication.
 
 [![Build Project](https://github.com/loresoft/HashGate/actions/workflows/dotnet.yml/badge.svg)](https://github.com/loresoft/HashGate/actions/workflows/dotnet.yml)
 
@@ -69,14 +69,30 @@ Install the NuGet packages for your server and client projects:
 
 ### Server Package (ASP.NET Core)
 
+**Using .NET CLI:**
+
 ```bash
 dotnet add package HashGate.AspNetCore
 ```
 
+**Using PowerShell:**
+
+```powershell
+Install-Package HashGate.AspNetCore
+```
+
 ### Client Package (.NET HttpClient)
+
+**Using .NET CLI:**
 
 ```bash
 dotnet add package HashGate.HttpClient
+```
+
+**Using PowerShell:**
+
+```powershell
+Install-Package HashGate.HttpClient
 ```
 
 ## Quick Start
