@@ -1,0 +1,35 @@
+meta {
+  name: Post Weather
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/weather
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "date": "2025-08-05",
+    "temperatureC": 25,
+    "summary": "Sunny"
+  }
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("Response echoes the posted weather", function() {
+    const body = res.getBody();
+    expect(body).to.have.property('date', '2025-08-05');
+    expect(body).to.have.property('temperatureC', 25);
+    expect(body).to.have.property('summary', 'Sunny');
+  });
+}

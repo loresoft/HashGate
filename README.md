@@ -3,10 +3,9 @@
 A HMAC (Hash-based Message Authentication Code) authentication system for ASP.NET Core applications. This library provides both server-side authentication and client-side HTTP handlers for secure API communication.
 
 [![Build Project](https://github.com/loresoft/HashGate/actions/workflows/dotnet.yml/badge.svg)](https://github.com/loresoft/HashGate/actions/workflows/dotnet.yml)
-
+[![License](https://img.shields.io/github/license/loresoft/HashGate.svg)](https://github.com/loresoft/HashGate/blob/main/LICENSE)
 [![Coverage Status](https://coveralls.io/repos/github/loresoft/HashGate/badge.svg?branch=main)](https://coveralls.io/github/loresoft/HashGate?branch=main)
 
-## Packages
 
 | Package                                                                    | Version                                                                                                                 | Description                                                   |
 | -------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |

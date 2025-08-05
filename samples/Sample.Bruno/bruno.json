@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "name": "Sample.MinimalApi - HMAC Authentication Sample",
+  "type": "collection",
+  "ignore": [
+    "node_modules",
+    ".git"
+  ]
+}

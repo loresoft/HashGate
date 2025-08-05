@@ -1,0 +1,39 @@
+meta {
+  name: Post Address
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/addresses
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "line1": "123 Main St",
+    "line2": "Apt 4B",
+    "city": "New York",
+    "state": "NY",
+    "zipCode": "10001"
+  }
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("Response echoes the posted address", function() {
+    const body = res.getBody();
+    expect(body).to.have.property('line1', '123 Main St');
+    expect(body).to.have.property('line2', 'Apt 4B');
+    expect(body).to.have.property('city', 'New York');
+    expect(body).to.have.property('state', 'NY');
+    expect(body).to.have.property('zipCode', '10001');
+  });
+}

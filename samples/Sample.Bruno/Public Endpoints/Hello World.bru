@@ -1,0 +1,21 @@
+meta {
+  name: Hello World
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/
+  body: none
+  auth: none
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Response contains Hello World", function() {
+    expect(res.getBody()).to.contain("Hello World");
+  });
+}

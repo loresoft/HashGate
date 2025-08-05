@@ -1,0 +1,36 @@
+meta {
+  name: Post User
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/users
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "first": "John",
+    "last": "Doe",
+    "email": "john.doe@example.com"
+  }
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Response echoes the posted user", function() {
+    const body = res.getBody();
+    expect(body).to.have.property('first', 'John');
+    expect(body).to.have.property('last', 'Doe');
+    expect(body).to.have.property('email', 'john.doe@example.com');
+  });
+}

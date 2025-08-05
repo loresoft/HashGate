@@ -2,6 +2,7 @@
 
 using System.Security.Claims;
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.Encodings.Web;
 
 using Microsoft.AspNetCore.Authentication;
@@ -138,6 +139,7 @@ public class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthenticatio
         // Ensure the request body can be read multiple times
         Request.EnableBuffering();
 
+
         await using var memoryStream = new MemoryStream();
         await Request.Body.CopyToAsync(memoryStream).ConfigureAwait(false);
 
@@ -145,6 +147,8 @@ public class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthenticatio
         Request.Body.Position = 0;
 
         var hashBytes = SHA256.HashData(memoryStream.ToArray());
+
+        var json = Encoding.UTF8.GetString(memoryStream.ToArray());
 
         // 32 bytes SHA256 -> 44 chars base64
         Span<char> base64 = stackalloc char[44];

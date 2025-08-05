@@ -1,0 +1,84 @@
+script:pre-request {
+  const CryptoJS = require('crypto-js');
+  const { URL } = require('url');
+
+  // Get collection variables
+  const client = bru.getEnvVar('client');
+  const secret = bru.getEnvVar('secret');
+
+  // Get request details
+  const method = req.method;
+  const url = new URL(bru.interpolate(req.url));
+  const host = url.host;
+  const pathAndQuery = url.pathname + url.search;
+
+  // Generate timestamp
+  const timestamp = Math.floor(Date.now() / 1000).toString();
+
+  // Prepare body and calculate content hash
+  let body = bru.interpolate(req.body || '');
+  if (typeof body === 'object') {
+    body = JSON.stringify(body);
+  }
+  const contentHash = CryptoJS.SHA256(body).toString(CryptoJS.enc.Base64);
+
+  // Create signed headers and string to sign
+  const headerValues = `${host};${timestamp};${contentHash}`;
+  const stringToSign = `${method}\n${pathAndQuery}\n${headerValues}`;
+
+  // Generate signature
+  const signature = CryptoJS.HmacSHA256(stringToSign, secret).toString(CryptoJS.enc.Base64);
+
+  // Construct Authorization header
+  const signedHeader = 'host;x-timestamp;x-content-sha256';
+  const authorization = `HMAC Client=${client}&SignedHeaders=${signedHeader}&Signature=${signature}`;
+
+  // Set headers
+  req.setHeader('Host', host);
+  req.setHeader('x-timestamp', timestamp);
+  req.setHeader('x-content-sha256', contentHash);
+  req.setHeader('Authorization', authorization);
+
+  // Set formatted body
+  req.setBody(body);
+
+}
+
+docs {
+  # HMAC Authentication Pre-Request Script
+
+  This pre-request script implements HMAC (Hash-based Message Authentication Code) authentication for Bruno API requests. It automatically generates the required authentication headers for secure API communication.
+
+  ## Overview
+
+  The script generates an HMAC signature based on the request details and adds the necessary authentication headers to each request. This ensures that requests are properly authenticated and secure.
+
+  ## Required Environment Variables
+
+  Before using this collection, you need to set up the following environment variables:
+
+  - `client`: Your client identifier/API key
+  - `secret`: Your secret key used for HMAC signature generation
+
+  ## Prerequisites
+
+  **Important**: Bruno must be running in **Developer Mode** to use this collection. The pre-request script requires Node.js modules (`crypto-js` and `url`) which are only available in developer mode.
+
+  To enable developer mode in Bruno:
+  1. Open Bruno
+  2. Go to Settings/Preferences
+  3. Enable "Developer Mode" or "Use Node.js runtime"
+
+  ## Usage
+
+  1. Ensure Bruno is running in developer mode (see Prerequisites above)
+  2. Set up your environment variables (`client` and `secret`)
+  3. Create your API requests in Bruno
+  4. The pre-request script will automatically handle authentication
+  5. Send requests - they will include all required HMAC authentication headers
+
+  ## Dependencies
+
+  - `crypto-js`: For HMAC and SHA256 operations
+  - `url`: For URL parsing and manipulation
+}

@@ -1,0 +1,31 @@
+meta {
+  name: Get Weather
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/weather
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("Response is array", function() {
+    const body = res.getBody();
+    expect(Array.isArray(body)).to.be.true;
+  });
+
+  test("Weather objects have required properties", function() {
+    const body = res.getBody();
+    if (body.length > 0) {
+      const weather = body[0];
+      expect(weather).to.have.property('date');
+      expect(weather).to.have.property('temperatureC');
+      expect(weather).to.have.property('temperatureF');
+      expect(weather).to.have.property('summary');
+    }
+  });
+}

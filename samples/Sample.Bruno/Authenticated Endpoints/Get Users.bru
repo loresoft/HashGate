@@ -1,0 +1,30 @@
+meta {
+  name: Get Users
+  type: https
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/users
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("Response is array", function() {
+    const body = res.getBody();
+    expect(Array.isArray(body)).to.be.true;
+  });
+
+  test("User objects have required properties", function() {
+    const body = res.getBody();
+    if (body.length > 0) {
+      const user = body[0];
+      expect(user).to.have.property('first');
+      expect(user).to.have.property('last');
+      expect(user).to.have.property('email');
+    }
+  });
+}

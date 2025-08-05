@@ -1,0 +1,32 @@
+meta {
+  name: Get Addresses
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/addresses
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("Response is array", function() {
+    const body = res.getBody();
+    expect(Array.isArray(body)).to.be.true;
+  });
+
+  test("Address objects have required properties", function() {
+    const body = res.getBody();
+    if (body.length > 0) {
+      const address = body[0];
+      expect(address).to.have.property('line1');
+      expect(address).to.have.property('line2');
+      expect(address).to.have.property('city');
+      expect(address).to.have.property('state');
+      expect(address).to.have.property('zipCode');
+    }
+  });
+}
