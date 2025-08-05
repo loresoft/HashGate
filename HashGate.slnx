@@ -12,6 +12,7 @@
   <Folder Name="/Tests/">
     <Project Path="test/HashGate.HttpClient.Tests/HashGate.HttpClient.Tests.csproj" Id="32212feb-7d5e-47f8-ac95-be9c18eb1117" />
     <Project Path="test/HashGate.AspNetCore.Tests/HashGate.AspNetCore.Tests.csproj" Id="2bb16589-28e6-4334-aa6d-bf3c508b8a78" />
+    <Project Path="test/HashGate.Integration.Tests/HashGate.Integration.Tests.csproj" />
   </Folder>
   <Project Path="src/HashGate.HttpClient/HashGate.HttpClient.csproj" Id="72d24d10-3a61-47ae-8460-a7a50f2bb5b9" />
   <Project Path="src/HashGate.AspNetCore/HashGate.AspNetCore.csproj" Id="15980cb6-86e2-4678-a29e-c74139684ce6" />
