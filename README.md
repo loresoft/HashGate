@@ -367,6 +367,15 @@ ASP.NET Core minimal API demonstrating server-side HMAC authentication:
 - **Features**: Automatic signature generation, HttpClient integration, background service
 - **Run**: `dotnet run --project samples/Sample.Client`
 
+### Sample.Bruno
+
+[Bruno](https://www.usebruno.com/) API collection demonstrating HMAC authentication:
+
+- **Location**: `samples/Sample.Bruno/`
+- **Features**: Pre-request HMAC authentication script, public and authenticated endpoints, environment configuration
+- **Requirements**: Bruno in Developer Mode for Node.js module support
+- **Usage**: Import the collection into Bruno and test endpoints
+
 ### Sample.JavaScript
 
 JavaScript/Node.js client implementation:

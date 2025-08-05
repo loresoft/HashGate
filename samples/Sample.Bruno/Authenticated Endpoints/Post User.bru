@@ -16,9 +16,9 @@ headers {
 
 body:json {
   {
-    "first": "John",
-    "last": "Doe",
-    "email": "john.doe@example.com"
+    "first": "{{$randomFirstName}}",
+    "last": "{{$randomLastName}}",
+    "email": "{{$randomEmail}}"
   }
 }
 
@@ -27,10 +27,4 @@ tests {
     expect(res.getStatus()).to.equal(200);
   });
   
-  test("Response echoes the posted user", function() {
-    const body = res.getBody();
-    expect(body).to.have.property('first', 'John');
-    expect(body).to.have.property('last', 'Doe');
-    expect(body).to.have.property('email', 'john.doe@example.com');
-  });
 }

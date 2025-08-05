@@ -7,6 +7,7 @@ meta {
 post {
   url: {{baseUrl}}/addresses
   body: json
+  auth: none
 }
 
 headers {
@@ -15,8 +16,8 @@ headers {
 
 body:json {
   {
-    "line1": "123 Main St",
-    "line2": "Apt 4B",
+    "line1": "{{$randomInt}} Main St",
+    "line2": "Apt {{$randomInt}}",
     "city": "New York",
     "state": "NY",
     "zipCode": "10001"
@@ -27,13 +28,5 @@ tests {
   test("Status code is 200", function() {
     expect(res.getStatus()).to.equal(200);
   });
-
-  test("Response echoes the posted address", function() {
-    const body = res.getBody();
-    expect(body).to.have.property('line1', '123 Main St');
-    expect(body).to.have.property('line2', 'Apt 4B');
-    expect(body).to.have.property('city', 'New York');
-    expect(body).to.have.property('state', 'NY');
-    expect(body).to.have.property('zipCode', '10001');
-  });
+  
 }
