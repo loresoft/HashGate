@@ -7,12 +7,12 @@ A HMAC (Hash-based Message Authentication Code) authentication system for ASP.NE
 
 ## Features
 
-- 🔐 **Secure HMAC-SHA256 authentication** with timestamp validation
-- 🚀 **Easy integration** with ASP.NET Core authentication system
-- 📦 **Client library included** for .NET HttpClient integration
-- 🌐 **Cross-platform** compatible (.NET 8.0 and .NET 9.0)
-- ⏰ **Request replay protection** with configurable time windows
-- 🔧 **Highly configurable** key providers and validation options
+- **Secure HMAC-SHA256 authentication** with timestamp validation
+- **Easy integration** with ASP.NET Core authentication system
+- **Client library included** for .NET HttpClient integration
+- **Cross-platform** compatible (.NET 8.0 and .NET 9.0)
+- **Request replay protection** with configurable time windows
+- **Highly configurable** key providers and validation options
 
 ## Overview
 
@@ -20,33 +20,33 @@ This library implements HMAC authentication similar to AWS Signature Version 4 a
 
 ## Why HMAC Authentication
 
-HMAC authentication is particularly well-suited for server-to-server communication and microservices architectures for several compelling reasons:
+HMAC authentication is particularly well-suited for server-to-server communication and microservices architectures for following reasons:
 
-### 🔒 **Enhanced Security**
+### **Enhanced Security**
 
 - **No credentials in transit**: Unlike bearer tokens, HMAC signatures are computed from request data, meaning the actual secret never travels over the network
 - **Request integrity**: Each request is cryptographically signed, ensuring the payload hasn't been tampered with during transmission
 - **Replay attack protection**: Built-in timestamp validation prevents malicious replaying of captured requests
 
-### 🏗️ **Microservices Architecture Benefits**
+### **Microservices Architecture Benefits**
 
 - **Stateless authentication**: No need for centralized token stores or session management across services
 - **Service-to-service isolation**: Each service can have unique HMAC keys, limiting blast radius if one service is compromised
 - **Zero-dependency authentication**: No reliance on external identity providers or token validation services
 
-### 🚀 **Operational Advantages**
+### **Operational Advantages**
 
 - **High performance**: HMAC computation is fast and doesn't require network calls to validate authenticity
 - **Reduced infrastructure**: No need for token refresh endpoints, session stores, or identity service dependencies
 - **Deterministic debugging**: Failed requests can be reproduced locally since signatures are deterministic
 
-### 🔧 **Implementation Flexibility**
+### **Implementation Flexibility**
 
 - **Language agnostic**: HMAC-SHA256 is supported by virtually every programming language and platform
 - **Framework independent**: Works with any HTTP client/server combination, not tied to specific OAuth flows
 - **Custom key management**: Full control over key rotation, storage, and distribution strategies
 
-### 📊 **Scalability & Reliability**
+### **Scalability & Reliability**
 
 - **No single point of failure**: Authentication doesn't depend on external services being available
 - **Linear scaling**: Authentication overhead doesn't increase with the number of services or requests
@@ -354,12 +354,12 @@ JavaScript/Node.js client implementation:
 
 ## Security Considerations
 
-- ⚠️ **Always use HTTPS** in production environments
-- 🔐 **Protect HMAC secret keys** - never expose them in client-side code
-- ⏰ **Monitor timestamp tolerance** - shorter windows provide better security
-- 🔄 **Rotate keys regularly** - implement key rotation policies
-- 📝 **Log authentication failures** - monitor for potential attacks
-- 🚫 **Validate all inputs** - especially timestamp and signature formats
+- **Always use HTTPS** in production environments
+- **Protect HMAC secret keys** - never expose them in client-side code
+- **Monitor timestamp tolerance** - shorter windows provide better security
+- **Rotate keys regularly** - implement key rotation policies
+- **Log authentication failures** - monitor for potential attacks
+- **Validate all inputs** - especially timestamp and signature formats
 
 ## Troubleshooting
 
