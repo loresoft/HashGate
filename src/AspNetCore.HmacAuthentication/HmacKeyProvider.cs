@@ -8,8 +8,13 @@ namespace AspNetCore.HmacAuthentication;
 /// Provides an implementation of <see cref="IHmacKeyProvider"/> that retrieves HMAC secrets from application configuration.
 /// </summary>
 /// <remarks>
+/// <para>
 /// This provider looks up HMAC secrets from a configuration section, typically specified by <see cref="HmacAuthenticationSchemeOptions.SecretSectionName"/>.
 /// If no section name is configured, "HmacSecrets" is used by default.
+/// </para>
+/// <para>
+/// The provider logs warnings when secrets are not found and returns <see langword="null"/> for unknown client identifiers.
+/// </para>
 /// </remarks>
 /// <example>
 /// <para>
@@ -39,7 +44,7 @@ namespace AspNetCore.HmacAuthentication;
 /// <code language="csharp">
 /// builder.Services
 ///     .AddAuthentication(options => options.DefaultScheme = HmacAuthenticationOptions.DefaultScheme)
-///     .AddHmacAuthentication(options => options.SecretSectionName = "MyCustomSecrets);
+///     .AddHmacAuthentication(options => options.SecretSectionName = "MyCustomSecrets");
 /// </code>
 /// </example>
 public class HmacKeyProvider : IHmacKeyProvider
@@ -55,7 +60,7 @@ public class HmacKeyProvider : IHmacKeyProvider
     /// <param name="logger">The logger instance for logging warnings or errors.</param>
     /// <param name="options">The options monitor for <see cref="HmacAuthenticationSchemeOptions"/>.</param>
     /// <exception cref="ArgumentNullException">
-    /// Thrown if <paramref name="configuration"/>, <paramref name="logger"/>, or <paramref name="options"/> is <c>null</c>.
+    /// Thrown when <paramref name="configuration"/>, <paramref name="logger"/>, or <paramref name="options"/> is <see langword="null"/>.
     /// </exception>
     public HmacKeyProvider(
         IConfiguration configuration,
@@ -70,18 +75,28 @@ public class HmacKeyProvider : IHmacKeyProvider
     /// <summary>
     /// Asynchronously retrieves the HMAC secret for the specified client identifier from configuration.
     /// </summary>
-    /// <param name="client">The client identifier whose HMAC secret is to be retrieved. Must not be <c>null</c> or whitespace.</param>
+    /// <param name="client">
+    /// The client identifier whose HMAC secret is to be retrieved. Must not be <see langword="null"/>, empty, or whitespace.
+    /// </param>
+    /// <param name="cancellationToken">
+    /// A token that can be used to request cancellation of the asynchronous operation.
+    /// The default value is <see cref="CancellationToken.None"/>.
+    /// </param>
     /// <returns>
-    /// A <see cref="ValueTask{TResult}"/> containing the HMAC secret as a string, or <c>null</c> if not found.
+    /// A <see cref="ValueTask{TResult}"/> representing the asynchronous operation.
+    /// The result contains the HMAC secret as a <see cref="string"/>,
+    /// or <see langword="null"/> if the client identifier is not found in the configuration.
     /// </returns>
     /// <remarks>
+    /// <para>
     /// The secret is retrieved from the configuration section specified by <see cref="HmacAuthenticationSchemeOptions.SecretSectionName"/>.
-    /// If the secret is not found, a warning is logged and <c>null</c> is returned.
+    /// If no section name is configured, the default "HmacSecrets" section is used.
+    /// </para>
     /// </remarks>
     /// <exception cref="ArgumentException">
-    /// Thrown if <paramref name="client"/> is <c>null</c>, empty, or consists only of white-space characters.
+    /// Thrown when <paramref name="client"/> is <see langword="null"/>, empty, or consists only of white-space characters.
     /// </exception>
-    public ValueTask<string?> GetSecretAsync(string client)
+    public ValueTask<string?> GetSecretAsync(string client, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(client);
 

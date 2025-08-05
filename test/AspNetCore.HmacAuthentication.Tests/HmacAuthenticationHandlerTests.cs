@@ -287,5 +287,5 @@ public class TestOptionsMonitor(HmacAuthenticationSchemeOptions options) : IOpti
 
 public class TestHmacKeyProvider(string key = "Test-HMAC-Key") : IHmacKeyProvider
 {
-    public ValueTask<string?> GetSecretAsync(string client) => new(key);
+    public ValueTask<string?> GetSecretAsync(string client, CancellationToken cancellationToken = default) => new(key);
 }

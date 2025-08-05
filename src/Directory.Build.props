@@ -1,18 +1,18 @@
 <Project>
 
   <PropertyGroup Label="Package">
-    <Description>API Key Authentication Implementation for ASP.NET Core</Description>
+    <Description>A HMAC (Hash-based Message Authentication Code) authentication system for ASP.NET Core applications</Description>
     <Copyright>Copyright © $([System.DateTime]::Now.ToString(yyyy)) LoreSoft</Copyright>
     <Authors>LoreSoft</Authors>
     <NeutralLanguage>en-US</NeutralLanguage>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <PackageTags>asp.net;aspnetcore;apikey</PackageTags>
-    <PackageProjectUrl>https://github.com/loresoft/AspNetCore.SecurityKey</PackageProjectUrl>
+    <PackageTags>asp.net;aspnetcore;hmac;authentication</PackageTags>
+    <PackageProjectUrl>https://github.com/loresoft/AspNetCore.HmacAuthentication</PackageProjectUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageIcon>logo.png</PackageIcon>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <RepositoryType>git</RepositoryType>
-    <RepositoryUrl>https://github.com/loresoft/AspNetCore.SecurityKey</RepositoryUrl>
+    <RepositoryUrl>https://github.com/loresoft/AspNetCore.HmacAuthentication</RepositoryUrl>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
   </PropertyGroup>
 

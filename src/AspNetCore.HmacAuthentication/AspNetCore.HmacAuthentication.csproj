@@ -4,6 +4,8 @@
     <TargetFrameworks>net8.0;net9.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <Description>HMAC authentication for ASP.NET Core applications. Provides secure request authentication using Hash-based Message Authentication Code (HMAC) with customizable key providers and authentication schemes.</Description>
+    <PackageTags>aspnetcore;hmac;authentication;middleware;security;api</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>

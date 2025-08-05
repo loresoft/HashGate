@@ -4,6 +4,8 @@
     <TargetFrameworks>net8.0;net9.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <Description>HTTP client library for HMAC authentication in ASP.NET Core applications. Provides easy integration for making authenticated HTTP requests using HMAC-based authentication schemes.</Description>
+    <PackageTags>aspnetcore;hmac;authentication;http;client;security</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>
@@ -12,7 +14,6 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="9.0.7" />
-
   </ItemGroup>
 
 </Project>
