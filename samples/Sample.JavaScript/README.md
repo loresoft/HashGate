@@ -80,7 +80,7 @@ The sample client provides an interactive console menu with the following comman
 
 ## HMAC Authentication Implementation
 
-The `HmacAuthenticationClient` class in `hmac-client.js` implements the HMAC authentication protocol that matches the .NET implementation:
+The `HmacClient` class in `hmac-client.js` implements the HMAC authentication protocol that matches the .NET implementation:
 
 ### Key Components
 
@@ -127,9 +127,9 @@ HMAC Client=SampleClient&SignedHeaders=host;x-timestamp;x-content-sha256&Signatu
 ### Simple GET Request
 
 ```javascript
-import { HmacAuthenticationClient } from './hmac-client.js';
+import { HmacClient } from './hmac-client.js';
 
-const client = new HmacAuthenticationClient('SampleClient', 'sample-client-secret');
+const client = new HmacClient('SampleClient', 'sample-client-secret');
 const response = await client.get('/users');
 const data = await response.json();
 console.log(data);
