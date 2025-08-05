@@ -171,7 +171,7 @@ public class HmacAuthenticationHandlerTests
     {
         var handler = CreateHandler();
 
-        var jsonContent ="""{ "username": "testuser", "password": "secret" }""";
+        var jsonContent = """{ "username": "testuser", "password": "secret" }""";
 
         var context = CreateHttpContext(
             method: "POST",
