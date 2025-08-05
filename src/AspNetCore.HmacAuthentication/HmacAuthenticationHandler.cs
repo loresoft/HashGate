@@ -141,7 +141,7 @@ public class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthenticatio
         Request.EnableBuffering();
 
         await using var memoryStream = new MemoryStream();
-        await Request.Body.CopyToAsync(memoryStream);
+        await Request.Body.CopyToAsync(memoryStream).ConfigureAwait(false);
 
         // Reset position after reading
         Request.Body.Position = 0;
@@ -179,9 +179,9 @@ public class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthenticatio
 
         // Handle date headers specifically
         if (headerName.Equals(HmacAuthenticationShared.DateHeaderName, StringComparison.InvariantCultureIgnoreCase)
-            || headerName.Equals(HmacAuthenticationShared.XDateHeaderName, StringComparison.InvariantCultureIgnoreCase))
+            || headerName.Equals(HmacAuthenticationShared.DateOverrideHeaderName, StringComparison.InvariantCultureIgnoreCase))
         {
-            if (Request.Headers.TryGetValue(HmacAuthenticationShared.XDateHeaderName, out var xDateValue))
+            if (Request.Headers.TryGetValue(HmacAuthenticationShared.DateOverrideHeaderName, out var xDateValue))
                 return xDateValue.ToString();
 
             if (Request.Headers.TryGetValue(HmacAuthenticationShared.DateHeaderName, out var dateValue))

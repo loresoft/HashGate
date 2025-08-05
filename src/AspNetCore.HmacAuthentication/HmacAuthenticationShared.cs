@@ -1,30 +1,83 @@
-using System.Runtime.Intrinsics.Arm;
 using System.Security.Cryptography;
 using System.Text;
 
 namespace AspNetCore.HmacAuthentication;
 
+/// <summary>
+/// Provides shared utilities and constants for HMAC authentication implementation.
+/// Contains methods for creating string-to-sign, generating signatures, and creating authorization headers.
+/// </summary>
 public static class HmacAuthenticationShared
 {
+    /// <summary>
+    /// The default authentication scheme name used for HMAC authentication.
+    /// </summary>
     public const string DefaultSchemeName = "HMAC";
 
+    /// <summary>
+    /// The name of the Authorization HTTP header.
+    /// </summary>
     public const string AuthorizationHeaderName = "Authorization";
+
+    /// <summary>
+    /// The name of the Host HTTP header.
+    /// </summary>
     public const string HostHeaderName = "Host";
+
+    /// <summary>
+    /// The name of the Content-Type HTTP header.
+    /// </summary>
     public const string ContentTypeHeaderName = "Content-Type";
+
+    /// <summary>
+    /// The name of the Content-Length HTTP header.
+    /// </summary>
     public const string ContentLengthHeaderName = "Content-Length";
+
+    /// <summary>
+    /// The name of the User-Agent HTTP header.
+    /// </summary>
     public const string UserAgentHeaderName = "User-Agent";
+
+    /// <summary>
+    /// The name of the Date HTTP header.
+    /// </summary>
     public const string DateHeaderName = "Date";
-    public const string XDateHeaderName = "x-date";
 
+    /// <summary>
+    /// The name of the custom x-date header used to override the Date header.
+    /// </summary>
+    public const string DateOverrideHeaderName = "x-date";
 
+    /// <summary>
+    /// The name of the custom x-timestamp header used for request timestamping.
+    /// </summary>
     public const string TimeStampHeaderName = "x-timestamp";
+
+    /// <summary>
+    /// The name of the custom x-content-sha256 header containing the SHA256 hash of the request body.
+    /// </summary>
     public const string ContentHashHeaderName = "x-content-sha256";
 
-    // Base64 for SHA256 of empty string
+    /// <summary>
+    /// Base64-encoded SHA256 hash of an empty string, used for requests with no body content.
+    /// </summary>
     public const string EmptyContentHash = "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=";
 
+    /// <summary>
+    /// The default set of headers that are included in the signature calculation.
+    /// Includes host, x-timestamp, and x-content-sha256 headers.
+    /// </summary>
     public static readonly string[] DefaultSignedHeaders = ["host", TimeStampHeaderName, ContentHashHeaderName];
 
+    /// <summary>
+    /// Creates a canonical string representation for signing based on the HTTP method, path with query string, and header values.
+    /// The format is: METHOD\nPATH_AND_QUERY\nHEADER_VALUES (semicolon-separated).
+    /// </summary>
+    /// <param name="method">The HTTP method (GET, POST, etc.) that will be converted to uppercase.</param>
+    /// <param name="pathAndQuery">The request path including query string parameters.</param>
+    /// <param name="headerValues">The collection of header values to include in the signature, in the order they should appear.</param>
+    /// <returns>A canonical string representation suitable for HMAC signature calculation.</returns>
     public static string CreateStringToSign(
         string method,
         string pathAndQuery,
@@ -78,6 +131,13 @@ public static class HmacAuthenticationShared
         });
     }
 
+    /// <summary>
+    /// Generates an HMAC-SHA256 signature for the provided string using the specified secret key.
+    /// The signature is returned as a Base64-encoded string.
+    /// </summary>
+    /// <param name="stringToSign">The canonical string representation to be signed.</param>
+    /// <param name="secretKey">The secret key used for HMAC-SHA256 calculation.</param>
+    /// <returns>A Base64-encoded HMAC-SHA256 signature.</returns>
     public static string GenerateSignature(
         string stringToSign,
         string secretKey)
@@ -105,6 +165,14 @@ public static class HmacAuthenticationShared
         return Convert.ToBase64String(hash);
     }
 
+    /// <summary>
+    /// Generates a complete Authorization header value in the format:
+    /// "HMAC Client={client}&amp;SignedHeaders={headers}&amp;Signature={signature}".
+    /// </summary>
+    /// <param name="client">The client identifier used in the authorization header.</param>
+    /// <param name="signedHeaders">The collection of header names that were included in the signature calculation.</param>
+    /// <param name="signature">The Base64-encoded HMAC signature.</param>
+    /// <returns>A complete Authorization header value ready for use in HTTP requests.</returns>
     public static string GenerateAuthorizationHeader(
         string client,
         IReadOnlyList<string> signedHeaders,
@@ -175,6 +243,13 @@ public static class HmacAuthenticationShared
         });
     }
 
+    /// <summary>
+    /// Performs a constant-time comparison of two strings to prevent timing attacks.
+    /// Both strings are converted to UTF-8 byte arrays before comparison.
+    /// </summary>
+    /// <param name="left">The first string to compare.</param>
+    /// <param name="right">The second string to compare.</param>
+    /// <returns><c>true</c> if the strings are equal; otherwise, <c>false</c>.</returns>
     public static bool FixedTimeEquals(
         string left,
         string right)
