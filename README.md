@@ -1,9 +1,12 @@
 # AspNetCore.HmacAuthentication
 
-[![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![.NET](https://img.shields.io/badge/.NET-8.0%20%7C%209.0-blue)](https://dotnet.microsoft.com/download)
-
 A HMAC (Hash-based Message Authentication Code) authentication system for ASP.NET Core applications. This library provides both server-side authentication middleware and client-side HTTP handlers for secure API communication.
+
+[![Build Project](https://github.com/loresoft/AspNetCore.HmacAuthentication/actions/workflows/dotnet.yml/badge.svg)](https://github.com/loresoft/AspNetCore.HmacAuthentication/actions/workflows/dotnet.yml)
+
+[![Coverage Status](https://coveralls.io/repos/github/loresoft/AspNetCore.HmacAuthentication/badge.svg?branch=main)](https://coveralls.io/github/loresoft/AspNetCore.HmacAuthentication?branch=main)
+
+[![AspNetCore.HmacAuthentication](https://img.shields.io/nuget/v/AspNetCore.HmacAuthentication.svg)](https://www.nuget.org/packages/AspNetCore.HmacAuthentication/)
 
 ## Features
 
