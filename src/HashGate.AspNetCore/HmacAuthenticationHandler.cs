@@ -71,7 +71,10 @@ public class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthenticatio
             if (!await ValidateContentHash())
                 return InvalidContentHashHeader;
 
-            var clientSecret = await _keyProvider.GetSecretAsync(hmacHeader.Client);
+            var clientSecret = await _keyProvider
+                .GetSecretAsync(hmacHeader.Client, Context.RequestAborted)
+                .ConfigureAwait(false);
+
             if (string.IsNullOrEmpty(clientSecret))
                 return InvalidClientName;
 
@@ -86,12 +89,10 @@ public class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthenticatio
             if (!HmacAuthenticationShared.FixedTimeEquals(expectedSignature, hmacHeader.Signature))
                 return InvalidSignature;
 
-            var claims = new[]
-            {
-                new Claim(ClaimTypes.Name, hmacHeader.Client),
-            };
+            var identity = await _keyProvider
+                .GenerateClaimsAsync(hmacHeader.Client, Scheme.Name, Context.RequestAborted)
+                .ConfigureAwait(false);
 
-            var identity = new ClaimsIdentity(claims, Scheme.Name);
             var principal = new ClaimsPrincipal(identity);
             var ticket = new AuthenticationTicket(principal, Scheme.Name);
 

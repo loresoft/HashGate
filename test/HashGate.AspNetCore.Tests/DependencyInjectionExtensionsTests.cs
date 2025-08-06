@@ -1,3 +1,5 @@
+using System.Security.Claims;
+
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -163,6 +165,15 @@ public class DependencyInjectionExtensionsTests
     // Test helper class
     private class TestHmacKeyProvider : IHmacKeyProvider
     {
+        public ValueTask<ClaimsIdentity> GenerateClaimsAsync(string client, string? scheme = null, CancellationToken cancellationToken = default)
+        {
+
+            Claim[] claims = [new Claim(ClaimTypes.Name, client)];
+            var identity = new ClaimsIdentity(claims, scheme);
+
+            return ValueTask.FromResult(identity);
+        }
+
         public ValueTask<string?> GetSecretAsync(string client, CancellationToken cancellationToken = default)
         {
             return ValueTask.FromResult<string?>("test-secret");

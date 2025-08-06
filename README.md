@@ -333,6 +333,22 @@ public class DatabaseKeyProvider : IHmacKeyProvider
         var key = await _keyRepository.GetKeyAsync(client, cancellationToken);
         return key?.Secret;
     }
+
+    public async ValueTask<ClaimsIdentity> GenerateClaimsAsync(string client, string? scheme = null, CancellationToken cancellationToken = default)
+    {
+        var identity = new ClaimsIdentity(scheme);
+        identity.AddClaim(new Claim(ClaimTypes.Name, client));
+        
+        // Add additional claims based on your requirements
+        var model = await _keyRepository.GetClientAsync(client, cancellationToken);
+        if (model != null)
+        {
+            identity.AddClaim(new Claim("display_name", model.DisplayName));
+            // Add role claims, permissions, etc. as needed
+        }
+        
+        return identity;
+    }
 }
 
 // Register in DI container with custom key provider
