@@ -6,7 +6,6 @@ A HMAC (Hash-based Message Authentication Code) authentication system for ASP.NE
 [![License](https://img.shields.io/github/license/loresoft/HashGate.svg)](https://github.com/loresoft/HashGate/blob/main/LICENSE)
 [![Coverage Status](https://coveralls.io/repos/github/loresoft/HashGate/badge.svg?branch=main)](https://coveralls.io/github/loresoft/HashGate?branch=main)
 
-
 | Package                                                                    | Version                                                                                                                 | Description                                                   |
 | -------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
 | [HashGate.AspNetCore](https://www.nuget.org/packages/HashGate.AspNetCore/) | [![NuGet](https://img.shields.io/nuget/v/HashGate.AspNetCore.svg)](https://www.nuget.org/packages/HashGate.AspNetCore/) | Server-side HMAC authentication for ASP.NET Core applications |

@@ -139,16 +139,21 @@ public class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthenticatio
         // Ensure the request body can be read multiple times
         Request.EnableBuffering();
 
+        // Return empty content hash if there is no body
+        if (Request.ContentLength == 0 || Request.Body == Stream.Null)
+            return HmacAuthenticationShared.EmptyContentHash;
 
         await using var memoryStream = new MemoryStream();
-        await Request.Body.CopyToAsync(memoryStream).ConfigureAwait(false);
+        await Request.BodyReader.CopyToAsync(memoryStream).ConfigureAwait(false);
 
         // Reset position after reading
         Request.Body.Position = 0;
 
-        var hashBytes = SHA256.HashData(memoryStream.ToArray());
+        // If the body is empty after reading, return empty content hash
+        if (memoryStream.Length == 0)
+            return HmacAuthenticationShared.EmptyContentHash;
 
-        var json = Encoding.UTF8.GetString(memoryStream.ToArray());
+        var hashBytes = SHA256.HashData(memoryStream.ToArray());
 
         // 32 bytes SHA256 -> 44 chars base64
         Span<char> base64 = stackalloc char[44];
