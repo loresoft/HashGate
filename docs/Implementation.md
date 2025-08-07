@@ -50,7 +50,7 @@ Every authenticated request MUST include these headers:
 
 1. **Host**: The target host (including port if not standard)
 2. **x-timestamp**: Unix timestamp in seconds
-3. **x-content-sha256**: Base64-encoded SHA256 hash of request body
+3. **x-content-sha256**: Base64-encoded SHA256 hash of request body (required even for empty bodies)
 4. **Authorization**: HMAC authentication header
 
 ### String-to-Sign Format
@@ -226,7 +226,7 @@ HMAC Client=demo&SignedHeaders=host&Signature=abc123
 
 ### Cryptographic Operations
 
-1. **Content Hash**: SHA256 hash of UTF-8 encoded body, then Base64 encode
+1. **Content Hash**: SHA256 hash of UTF-8 encoded body, then Base64 encode (required even for empty bodies)
 2. **Signature**: HMAC-SHA256 of string-to-sign using UTF-8 encoded secret, then Base64 encode
 
 ### Implementation Algorithm
@@ -234,7 +234,7 @@ HMAC Client=demo&SignedHeaders=host&Signature=abc123
 ```text
 1. Extract host from request URL
 2. Generate current Unix timestamp
-3. Calculate SHA256 hash of request body (use EMPTY_CONTENT_HASH if no body)
+3. Calculate SHA256 hash of request body
 4. Create header values array: [host, timestamp, content_hash]
 5. Create string-to-sign: "METHOD\nPATH\nheader_values_joined_by_semicolon"
 6. Generate HMAC-SHA256 signature of string-to-sign using secret key
@@ -257,7 +257,7 @@ HMAC Client=demo&SignedHeaders=host&Signature=abc123
 When making a request, the client:
 
 1. **Generates Timestamp**: Current Unix timestamp for replay protection
-2. **Calculates Content Hash**: SHA256 hash of request body (Base64 encoded)
+2. **Calculates Content Hash**: SHA256 hash of request body (Base64 encoded, required even for empty bodies)
 3. **Creates String to Sign**: Canonical string containing method, path, and header values
 4. **Generates Signature**: HMAC-SHA256 signature of the string to sign
 
@@ -420,8 +420,7 @@ export class HmacClient {
         this.DEFAULT_SCHEME_NAME = "HMAC";
         this.TIME_STAMP_HEADER_NAME = "x-timestamp";
         this.CONTENT_HASH_HEADER_NAME = "x-content-sha256";
-        this.EMPTY_CONTENT_HASH =
-            "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=";
+        this.EMPTY_CONTENT_HASH = "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=";
         this.DEFAULT_SIGNED_HEADERS = [
             "host",
             this.TIME_STAMP_HEADER_NAME,
@@ -585,7 +584,7 @@ try {
 
 - **host**: Target host header
 - **x-timestamp**: Unix timestamp of request
-- **x-content-sha256**: SHA256 hash of request body
+- **x-content-sha256**: SHA256 hash of request body (required even for empty bodies)
 
 ### Custom Signed Headers
 
@@ -683,7 +682,8 @@ const client = new HmacClient(
 
 - Ensure body content is identical during hash calculation and transmission
 - Use UTF-8 encoding consistently
-- For empty body, use the empty content hash constant
+- For empty body, use the empty content hash constant (`47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=`)
+- Remember that content hash is required even for GET requests and other methods with empty bodies
 
 #### 4. Timestamp Validation Errors
 
