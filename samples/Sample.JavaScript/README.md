@@ -21,15 +21,55 @@ This sample demonstrates how to implement HMAC authentication in JavaScript/Node
    npm install
    ```
 
+3. Set up environment configuration:
+
+   ```bash
+   npm run setup
+   ```
+
+   This will copy `.env.example` to `.env` with the default sample configuration.
+
 ## Configuration
 
-The client is configured to work with the default sample settings:
+The client uses environment variables for configuration. Before running the sample:
 
-- **Client ID**: `SampleClient`
-- **Secret**: `sample-client-secret`
-- **Base URL**: `https://localhost:7134`
+1. Copy the example environment file:
 
-These settings match the configuration in the ASP.NET Core `Sample.MinimalApi` project.
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Update the `.env` file with your configuration:
+
+   ```env
+   # HMAC Authentication Configuration
+   HMAC_CLIENT_ID=SampleClient
+   HMAC_SECRET=ci3JaJZRDQGq6juXVvfp89TnAzS43ASaK/uB38R6ndzr7NN/Wlbstvg+2ZaI2qUVHkvvD3+hPvvzL58Z/bPq6A==
+   API_BASE_URL=https://localhost:7134
+
+   # Development Settings
+   NODE_TLS_REJECT_UNAUTHORIZED=0
+   ```
+
+The default configuration matches the settings in the ASP.NET Core `Sample.MinimalApi` project.
+
+### Environment Variables
+
+- **HMAC_CLIENT_ID**: The client identifier used for HMAC authentication
+- **HMAC_SECRET**: The base64-encoded secret key for HMAC signing
+- **API_BASE_URL**: The base URL of the API server
+- **NODE_TLS_REJECT_UNAUTHORIZED**: Set to `0` to disable TLS certificate validation for development
+
+### Security Notes
+
+> **Important**: The `.env` file contains sensitive information and should never be committed to version control. The `.env` file is already added to `.gitignore` to prevent accidental commits.
+>
+> For production deployments:
+>
+> - Use environment variables or secure key management services
+> - Never hardcode secrets in source code
+> - Rotate secrets regularly
+> - Use proper TLS certificate validation (remove `NODE_TLS_REJECT_UNAUTHORIZED=0`)
 
 ## Running the Sample
 
@@ -115,7 +155,7 @@ HMAC Client=SampleClient&SignedHeaders=host;x-timestamp;x-content-sha256&Signatu
 - `index.js` - Interactive console application demonstrating usage
 - `package.json` - Node.js project configuration
 
-## Security Notes
+## Production Considerations
 
 - The sample disables TLS certificate validation for development (`NODE_TLS_REJECT_UNAUTHORIZED=0`)
 - In production, ensure proper TLS certificate validation

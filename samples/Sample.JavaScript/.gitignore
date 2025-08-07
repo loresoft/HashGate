@@ -80,3 +80,6 @@ typings/
 
 # Stores VSCode versions used for testing VSCode extensions
 .vscode-test
+
+# Environment variables
+.env

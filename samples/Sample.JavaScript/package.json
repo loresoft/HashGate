@@ -8,7 +8,8 @@
     "start": "node index.js",
     "dev": "node --watch index.js",
     "test": "node test.js",
-    "demo": "node demo.js"
+    "demo": "node demo.js",
+    "setup": "node -e \"const fs = require('fs'); if (!fs.existsSync('.env')) { fs.copyFileSync('.env.example', '.env'); console.log('Created .env from .env.example'); } else { console.log('.env already exists'); }\""
   },
   "keywords": [
     "hmac",
@@ -20,6 +21,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "dotenv": "^16.4.5",
     "node-fetch": "^3.3.2"
   },
   "engines": {

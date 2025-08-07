@@ -1,16 +1,23 @@
 import { HmacClient } from './hmac-client.js';
 import readline from 'readline';
+import dotenv from 'dotenv';
+
+// Load environment variables from .env file
+dotenv.config();
 
 /**
  * Interactive console application demonstrating HMAC authentication
  */
 class SampleApp {
     constructor() {
-        // Configuration matching the .NET samples
+        // Validate required environment variables
+        this.validateEnvironmentVariables();
+
+        // Configuration from environment variables
         this.client = new HmacClient(
-            'SampleClient',
-            'sample-client-secret',
-            'https://localhost:7134'
+            process.env.HMAC_CLIENT_ID,
+            process.env.HMAC_SECRET,
+            process.env.API_BASE_URL
         );
 
         this.rl = readline.createInterface({
@@ -29,13 +36,35 @@ class SampleApp {
     }
 
     /**
+     * Validates that all required environment variables are set
+     */
+    validateEnvironmentVariables() {
+        const requiredVars = ['HMAC_CLIENT_ID', 'HMAC_SECRET', 'API_BASE_URL'];
+        const missingVars = requiredVars.filter(varName => !process.env[varName]);
+
+        if (missingVars.length > 0) {
+            console.error('Error: Missing required environment variables:');
+            missingVars.forEach(varName => {
+                console.error(`  - ${varName}`);
+            });
+            console.error('\nPlease ensure you have a .env file with the required variables.');
+            console.error('See .env.example for the expected format.');
+            process.exit(1);
+        }
+    }
+
+    /**
      * Starts the interactive console application
      */
     async start() {
         console.log('Starting JavaScript HMAC Authentication Sample Client...\n');
+        console.log(`Client ID: ${process.env.HMAC_CLIENT_ID}`);
+        console.log(`API Base URL: ${process.env.API_BASE_URL}\n`);
 
-        // Disable TLS certificate validation for development
-        process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+        // Disable TLS certificate validation for development if configured
+        if (process.env.NODE_TLS_REJECT_UNAUTHORIZED === '0') {
+            console.log('Warning: TLS certificate validation is disabled for development\n');
+        }
 
         await this.showMenu();
     }
