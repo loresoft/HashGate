@@ -68,6 +68,7 @@ public static class HmacHeaderParser
         {
             if (!input.StartsWith(PREFIX, StringComparison.OrdinalIgnoreCase))
                 return HmacHeaderError.InvalidSchema;
+
             input = input[PREFIX.Length..];
         }
         else
@@ -103,7 +104,7 @@ public static class HmacHeaderParser
             }
 
             if (ampIdx < 0) break;
-            input = input.Slice(ampIdx + 1);
+            input = input[(ampIdx + 1)..];
         }
 
         if (found != 3)
