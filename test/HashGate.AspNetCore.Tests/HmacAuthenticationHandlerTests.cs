@@ -128,7 +128,7 @@ public class HmacAuthenticationHandlerTests
         var result = await handler.AuthenticateAsync();
 
         Assert.False(result.Succeeded);
-        Assert.Equal("Invalid Authorization header", result.Failure?.Message);
+        Assert.True(result.None);
     }
 
     [Fact]
@@ -245,7 +245,7 @@ public class HmacAuthenticationHandlerTests
         var result = await handler.AuthenticateAsync();
 
         Assert.False(result.Succeeded);
-        Assert.Equal("Invalid Authorization header: InvalidSchema", result.Failure?.Message);
+        Assert.True(result.None);
     }
 
     [Fact]
