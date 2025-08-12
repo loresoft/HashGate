@@ -21,7 +21,6 @@ namespace HashGate.AspNetCore;
 /// </remarks>
 public class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthenticationSchemeOptions>
 {
-    private static readonly AuthenticateResult InvalidAuthorizationHeader = AuthenticateResult.Fail("Invalid Authorization header");
     private static readonly AuthenticateResult InvalidTimestampHeader = AuthenticateResult.Fail("Invalid timestamp header");
     private static readonly AuthenticateResult InvalidContentHashHeader = AuthenticateResult.Fail("Invalid content hash header");
     private static readonly AuthenticateResult InvalidClientName = AuthenticateResult.Fail("Invalid client name");
@@ -58,10 +57,18 @@ public class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthenticatio
         try
         {
             var authorizationHeader = Request.Headers.Authorization.ToString();
+
+            // If no Authorization header is present, return no result
             if (string.IsNullOrEmpty(authorizationHeader))
-                return InvalidAuthorizationHeader;
+                return AuthenticateResult.NoResult();
 
             var result = HmacHeaderParser.TryParse(authorizationHeader, true, out var hmacHeader);
+
+            // not an HMAC Authorization header, return no result
+            if (result == HmacHeaderError.InvalidSchema)
+                return AuthenticateResult.NoResult();
+
+            // invalid HMAC Authorization header format
             if (result != HmacHeaderError.None)
                 return AuthenticateResult.Fail($"Invalid Authorization header: {result}");
 
