@@ -53,6 +53,7 @@ public static class AuthenticationBuilderExtensions
     public static AuthenticationBuilder AddHmacAuthentication(this AuthenticationBuilder builder, Action<HmacAuthenticationSchemeOptions>? configureOptions)
         => AddHmacAuthentication<HmacKeyProvider>(builder, HmacAuthenticationSchemeOptions.DefaultScheme, null, configureOptions);
 
+
     /// <summary>
     /// Adds HMAC authentication using a custom <see cref="IHmacKeyProvider"/> and the default scheme.
     /// </summary>
