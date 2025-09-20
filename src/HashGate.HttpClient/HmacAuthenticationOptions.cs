@@ -64,7 +64,7 @@ public class HmacAuthenticationOptions
     /// </list>
     /// </remarks>
     [Required]
-    public required string Client { get; set; }
+    public string Client { get; set; } = null!;
 
     /// <summary>
     /// Gets or sets the secret key used for HMAC-SHA256 signature generation.
@@ -89,7 +89,7 @@ public class HmacAuthenticationOptions
     /// </para>
     /// </remarks>
     [Required]
-    public required string Secret { get; set; }
+    public string Secret { get; set; } = null!;
 
     /// <summary>
     /// Gets or sets the list of HTTP header names that should be included in the HMAC signature calculation.

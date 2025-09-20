@@ -100,6 +100,26 @@ public static class HmacAuthenticationShared
         // 2 for the two '\n' literals
         int totalLength = methodLength + pathAndQueryLength + headerValuesLength + separatorLength + 2;
 
+#if NETSTANDARD2_0
+        var stringBuilder = new StringBuilder(totalLength);
+
+        stringBuilder
+            .Append(method.ToUpperInvariant())
+            .Append('\n')
+            .Append(pathAndQuery)
+            .Append('\n');
+
+        // Write header values with semicolons
+        for (int i = 0; i < headerValues.Count; i++)
+        {
+            if (i > 0)
+                stringBuilder.Append(';');
+
+            stringBuilder.Append(headerValues[i]);
+        }
+
+        return stringBuilder.ToString();
+#else
         return string.Create(totalLength, (method, pathAndQuery, headerValues), (span, state) =>
         {
             int pos = 0;
@@ -129,6 +149,7 @@ public static class HmacAuthenticationShared
                 pos += header.Length;
             }
         });
+#endif
     }
 
     /// <summary>
@@ -146,6 +167,12 @@ public static class HmacAuthenticationShared
         var secretBytes = Encoding.UTF8.GetBytes(secretKey);
         var dataBytes = Encoding.UTF8.GetBytes(stringToSign);
 
+#if NETSTANDARD2_0
+        // Use traditional approach for .NET Standard 2.0
+        using var hmac = new HMACSHA256(secretBytes);
+        var hash = hmac.ComputeHash(dataBytes);
+        return Convert.ToBase64String(hash);
+#else
         // Compute HMACSHA256
         Span<byte> hash = stackalloc byte[32];
         using var hmac = new HMACSHA256(secretBytes);
@@ -163,6 +190,7 @@ public static class HmacAuthenticationShared
             return new string(base64[..charsWritten]);
 
         return Convert.ToBase64String(hash);
+#endif
     }
 
     /// <summary>
@@ -183,6 +211,34 @@ public static class HmacAuthenticationShared
         const string signedHeadersPrefix = "&SignedHeaders=";
         const string signaturePrefix = "&Signature=";
 
+#if NETSTANDARD2_0
+        var stringBuilder = new StringBuilder();
+
+        // Write scheme
+        stringBuilder.Append(scheme);
+
+        // Write client prefix and client
+        stringBuilder.Append(clientPrefix);
+        stringBuilder.Append(client);
+
+        // Write signedHeaders prefix
+        stringBuilder.Append(signedHeadersPrefix);
+
+        // Write signedHeaders (semicolon separated)
+        for (int i = 0; i < signedHeaders.Count; i++)
+        {
+            if (i > 0)
+                stringBuilder.Append(';');
+
+            stringBuilder.Append(signedHeaders[i]);
+        }
+
+        // Write signature prefix and signature
+        stringBuilder.Append(signaturePrefix);
+        stringBuilder.Append(signature);
+
+        return stringBuilder.ToString();
+#else
         // Calculate signedHeaders string and its length
         int signedHeadersCount = signedHeaders.Count;
         int signedHeadersLength = 0;
@@ -241,6 +297,7 @@ public static class HmacAuthenticationShared
             state.signature.AsSpan().CopyTo(span.Slice(pos, state.signature.Length));
             pos += state.signature.Length;
         });
+#endif
     }
 
     /// <summary>
@@ -262,7 +319,16 @@ public static class HmacAuthenticationShared
         if (leftBytes.Length != rightBytes.Length)
             return false;
 
+#if NETSTANDARD2_0
+        // Manual constant-time comparison for .NET Standard 2.0
+        int result = 0;
+        for (int i = 0; i < leftBytes.Length; i++)
+            result |= leftBytes[i] ^ rightBytes[i];
+
+        return result == 0;
+#else
         // Use FixedTimeEquals for constant-time comparison
         return CryptographicOperations.FixedTimeEquals(leftBytes, rightBytes);
+#endif
     }
 }

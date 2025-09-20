@@ -57,9 +57,20 @@ public static class HttpRequestMessageExtensions
         string secret,
         IReadOnlyList<string>? signedHeaders = null)
     {
-        ArgumentNullException.ThrowIfNull(request);
-        ArgumentException.ThrowIfNullOrWhiteSpace(client);
-        ArgumentException.ThrowIfNullOrWhiteSpace(secret);
+        if (request is null)
+            throw new ArgumentNullException(nameof(request));
+
+        if (client is null)
+            throw new ArgumentNullException(nameof(client));
+
+        if (string.IsNullOrWhiteSpace(client))
+            throw new ArgumentException("Client cannot be empty or whitespace.", nameof(client));
+
+        if (secret is null)
+            throw new ArgumentNullException(nameof(secret));
+
+        if (string.IsNullOrWhiteSpace(secret))
+            throw new ArgumentException("Secret cannot be empty or whitespace.", nameof(secret));
 
         // ensure required headers are present
         if (signedHeaders == null)
@@ -126,8 +137,10 @@ public static class HttpRequestMessageExtensions
         this HttpRequestMessage request,
         HmacAuthenticationOptions options)
     {
-        ArgumentNullException.ThrowIfNull(request);
-        ArgumentNullException.ThrowIfNull(options);
+        if (request is null)
+            throw new ArgumentNullException(nameof(request));
+        if (options is null)
+            throw new ArgumentNullException(nameof(options));
 
         return request.AddHmacAuthentication(
             client: options.Client,
@@ -174,8 +187,14 @@ public static class HttpRequestMessageExtensions
         if (request.Content == null)
             return HmacAuthenticationShared.EmptyContentHash;
 
-        byte[] bodyBytes = await request.Content.ReadAsByteArrayAsync();
+        var bodyBytes = await request.Content.ReadAsByteArrayAsync();
+
+#if NETSTANDARD2_0
+        using var sha256 = SHA256.Create();
+        var hashBytes = sha256.ComputeHash(bodyBytes);
+#else
         var hashBytes = SHA256.HashData(bodyBytes);
+#endif
 
         // consume the content stream, need to recreate it
         var originalContent = new ByteArrayContent(bodyBytes);
@@ -185,10 +204,12 @@ public static class HttpRequestMessageExtensions
         // Restore content with headers
         request.Content = originalContent;
 
+#if !NETSTANDARD2_0
         // 32 bytes SHA256 -> 44 chars base64
         Span<char> base64 = stackalloc char[44];
         if (Convert.TryToBase64Chars(hashBytes, base64, out int charsWritten))
             return new string(base64[..charsWritten]);
+#endif
 
         // if stackalloc is not large enough (should not happen for SHA256)
         return Convert.ToBase64String(hashBytes);

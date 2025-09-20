@@ -67,7 +67,8 @@ public static class DependencyInjectionExtensions
         this IServiceCollection services,
         Action<HmacAuthenticationOptions>? configure = null)
     {
-        ArgumentNullException.ThrowIfNull(services);
+        if (services == null)
+            throw new ArgumentNullException(nameof(services));
 
         services
             .AddOptions<HmacAuthenticationOptions>()
