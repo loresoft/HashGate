@@ -7,13 +7,17 @@
     <Description>HTTP client library for HMAC authentication in ASP.NET Core applications. Provides easy integration for making authenticated HTTP requests using HMAC-based authentication schemes.</Description>
     <PackageTags>aspnetcore;hmac;authentication;http;client;security</PackageTags>
   </PropertyGroup>
- 
+
+  <PropertyGroup>
+    <DefineConstants>$(DefineConstants);HTTP_CLIENT</DefineConstants>
+  </PropertyGroup>
+
   <ItemGroup>
     <Compile Include="..\HashGate.AspNetCore\HmacAuthenticationShared.cs" Link="HmacAuthenticationShared.cs" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="9.0.9" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="9.0.10" />
   </ItemGroup>
 
 </Project>

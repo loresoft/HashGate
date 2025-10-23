@@ -1,7 +1,11 @@
 using System.Security.Cryptography;
 using System.Text;
 
-namespace HashGate;
+#if HTTP_CLIENT
+namespace HashGate.HttpClient;
+#else
+namespace HashGate.AspNetCore;
+#endif
 
 /// <summary>
 /// Provides shared utilities and constants for HMAC authentication implementation.
