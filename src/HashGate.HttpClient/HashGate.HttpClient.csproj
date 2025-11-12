@@ -8,6 +8,10 @@
     <PackageTags>aspnetcore;hmac;authentication;http;client;security</PackageTags>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <DefineConstants>$(DefineConstants);HTTP_CLIENT</DefineConstants>
+  </PropertyGroup>
+
   <ItemGroup>
     <Compile Include="..\HashGate.AspNetCore\HmacAuthenticationShared.cs" Link="HmacAuthenticationShared.cs" />
   </ItemGroup>
