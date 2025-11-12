@@ -16,7 +16,6 @@ A HMAC (Hash-based Message Authentication Code) authentication system for ASP.NE
 - **Secure HMAC-SHA256 authentication** with timestamp validation
 - **Easy integration** with ASP.NET Core authentication system
 - **Client library included** for .NET HttpClient integration
-- **Cross-platform** compatible (.NET 8.0 and .NET 9.0)
 - **Request replay protection** with configurable time windows
 - **Highly configurable** key providers and validation options
 
