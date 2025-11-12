@@ -33,31 +33,25 @@ public static class Program
         app.MapGet("/", () => "Hello World!");
 
         app.MapGet("/weather", () => WeatherFaker.Instance.Generate(5))
-            .WithName("GetWeather")
-            .WithOpenApi();
+            .WithName("GetWeather");
 
         app.MapPost("/weather", (Weather weather) => Results.Ok(weather))
-            .WithName("PostWeather")
-            .WithOpenApi();
+            .WithName("PostWeather");
 
         app.MapGet("/users", () => UserFaker.Instance.Generate(10))
             .WithName("GetUsers")
-            .WithOpenApi()
             .RequireAuthorization();
 
         app.MapPost("/users", (User user) => Results.Ok(user))
             .WithName("PostUser")
-            .WithOpenApi()
             .RequireAuthorization();
 
         app.MapGet("/addresses", () => AddressFaker.Instance.Generate(10))
             .WithName("GetAddresses")
-            .WithOpenApi()
             .RequireAuthorization();
 
         app.MapPost("/addresses", (Address address) => Results.Ok(address))
             .WithName("PostAddress")
-            .WithOpenApi()
             .RequireAuthorization();
 
         app.MapGet("/current", (ClaimsPrincipal? principal) => new { principal?.Identity?.Name })
