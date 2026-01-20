@@ -1,3 +1,4 @@
+using System.Net.Http;
 using System.Security.Cryptography;
 
 namespace HashGate.HttpClient;
@@ -189,7 +190,7 @@ public static class HttpRequestMessageExtensions
 
         var bodyBytes = await request.Content.ReadAsByteArrayAsync();
 
-#if NETSTANDARD2_0
+#if NETSTANDARD2_0 || NETFRAMEWORK
         using var sha256 = SHA256.Create();
         var hashBytes = sha256.ComputeHash(bodyBytes);
 #else
@@ -204,7 +205,7 @@ public static class HttpRequestMessageExtensions
         // Restore content with headers
         request.Content = originalContent;
 
-#if !NETSTANDARD2_0
+#if !NETSTANDARD2_0 && !NETFRAMEWORK
         // 32 bytes SHA256 -> 44 chars base64
         Span<char> base64 = stackalloc char[44];
         if (Convert.TryToBase64Chars(hashBytes, base64, out int charsWritten))

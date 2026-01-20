@@ -70,13 +70,22 @@ public class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthenticatio
 
             // invalid HMAC Authorization header format
             if (result != HmacHeaderError.None)
+            {
+                Logger.LogWarning("Invalid Authorization header: {Error}", result);
                 return AuthenticateResult.Fail($"Invalid Authorization header: {result}");
+            }
 
             if (!ValidateTimestamp())
+            {
+                Logger.LogWarning("Invalid or expired timestamp");
                 return InvalidTimestampHeader;
+            }
 
             if (!await ValidateContentHash())
+            {
+                Logger.LogWarning("Invalid body content hash");
                 return InvalidContentHashHeader;
+            }
 
             var clientSecret = await _keyProvider
                 .GetSecretAsync(hmacHeader.Client, Context.RequestAborted)

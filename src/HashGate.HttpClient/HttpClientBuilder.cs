@@ -1,3 +1,5 @@
+using System.Net.Http;
+
 using Microsoft.Extensions.Options;
 
 namespace HashGate.HttpClient;

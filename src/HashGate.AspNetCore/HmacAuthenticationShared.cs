@@ -104,7 +104,7 @@ public static class HmacAuthenticationShared
         // 2 for the two '\n' literals
         int totalLength = methodLength + pathAndQueryLength + headerValuesLength + separatorLength + 2;
 
-#if NETSTANDARD2_0
+#if NETSTANDARD2_0 || NETFRAMEWORK
         var stringBuilder = new StringBuilder(totalLength);
 
         stringBuilder
@@ -171,8 +171,8 @@ public static class HmacAuthenticationShared
         var secretBytes = Encoding.UTF8.GetBytes(secretKey);
         var dataBytes = Encoding.UTF8.GetBytes(stringToSign);
 
-#if NETSTANDARD2_0
-        // Use traditional approach for .NET Standard 2.0
+#if NETSTANDARD2_0 || NETFRAMEWORK
+        // Use traditional approach for .NET Standard 2.0 and .NET Framework
         using var hmac = new HMACSHA256(secretBytes);
         var hash = hmac.ComputeHash(dataBytes);
         return Convert.ToBase64String(hash);
@@ -215,7 +215,7 @@ public static class HmacAuthenticationShared
         const string signedHeadersPrefix = "&SignedHeaders=";
         const string signaturePrefix = "&Signature=";
 
-#if NETSTANDARD2_0
+#if NETSTANDARD2_0 || NETFRAMEWORK
         var stringBuilder = new StringBuilder();
 
         // Write scheme
@@ -323,7 +323,7 @@ public static class HmacAuthenticationShared
         if (leftBytes.Length != rightBytes.Length)
             return false;
 
-#if NETSTANDARD2_0
+#if NETSTANDARD2_0 || NETFRAMEWORK
         // Manual constant-time comparison for .NET Standard 2.0
         int result = 0;
         for (int i = 0; i < leftBytes.Length; i++)
