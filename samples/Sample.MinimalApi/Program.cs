@@ -23,43 +23,64 @@ public static class Program
         builder.Services.AddOpenApi();
         builder.Services.AddEndpointsApiExplorer();
 
-        var app = builder.Build();
+        builder.Services.AddHmacRateLimiter(configure: options =>
+        {
+            options.RequestsPerPeriod = 10;
+            options.BurstFactor = 1;
+        });
 
-        app.UseHttpsRedirection();
+        var application = builder.Build();
 
-        app.UseAuthentication();
-        app.UseAuthorization();
+        application.UseHttpsRedirection();
 
-        app.MapGet("/", () => "Hello World!");
+        application.UseRateLimiter();
 
-        app.MapGet("/weather", () => WeatherFaker.Instance.Generate(5))
-            .WithName("GetWeather");
+        application.UseAuthentication();
+        application.UseAuthorization();
 
-        app.MapPost("/weather", (Weather weather) => Results.Ok(weather))
+        application
+            .MapGet("/", () => "Hello World!");
+
+        application
+            .MapGet("/weather", () => WeatherFaker.Instance.Generate(5))
+            .WithName("GetWeather")
+            .RequireHmacRateLimiting();
+
+        application
+            .MapPost("/weather", (Weather weather) => Results.Ok(weather))
             .WithName("PostWeather");
 
-        app.MapGet("/users", () => UserFaker.Instance.Generate(10))
+        application
+            .MapGet("/users", () => UserFaker.Instance.Generate(10))
             .WithName("GetUsers")
-            .RequireAuthorization();
+            .RequireAuthorization()
+            .RequireHmacRateLimiting();
 
-        app.MapPost("/users", (User user) => Results.Ok(user))
+        application
+            .MapPost("/users", (User user) => Results.Ok(user))
             .WithName("PostUser")
-            .RequireAuthorization();
+            .RequireAuthorization()
+            .RequireHmacRateLimiting();
 
-        app.MapGet("/addresses", () => AddressFaker.Instance.Generate(10))
+        application
+            .MapGet("/addresses", () => AddressFaker.Instance.Generate(10))
             .WithName("GetAddresses")
-            .RequireAuthorization();
+            .RequireAuthorization()
+            .RequireHmacRateLimiting();
 
-        app.MapPost("/addresses", (Address address) => Results.Ok(address))
+        application
+            .MapPost("/addresses", (Address address) => Results.Ok(address))
             .WithName("PostAddress")
+            .RequireAuthorization()
+            .RequireHmacRateLimiting();
+
+        application
+            .MapGet("/current", (ClaimsPrincipal? principal) => new { principal?.Identity?.Name })
             .RequireAuthorization();
 
-        app.MapGet("/current", (ClaimsPrincipal? principal) => new { principal?.Identity?.Name })
-            .RequireAuthorization();
+        application.MapOpenApi();
+        application.MapScalarApiReference();
 
-        app.MapOpenApi();
-        app.MapScalarApiReference();
-
-        app.Run();
+        application.Run();
     }
 }

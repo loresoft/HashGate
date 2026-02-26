@@ -1,23 +1,25 @@
 meta {
   name: Get Users
-  type: https
+  type: http
   seq: 1
 }
 
 get {
   url: {{baseUrl}}/users
+  body: none
+  auth: none
 }
 
 tests {
   test("Status code is 200", function() {
     expect(res.getStatus()).to.equal(200);
   });
-
+  
   test("Response is array", function() {
     const body = res.getBody();
     expect(Array.isArray(body)).to.be.true;
   });
-
+  
   test("User objects have required properties", function() {
     const body = res.getBody();
     if (body.length > 0) {
