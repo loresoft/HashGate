@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace HashGate.AspNetCore;
 
@@ -95,14 +96,29 @@ public static class AuthenticationBuilderExtensions
     /// <param name="displayName">The display name for the authentication handler.</param>
     /// <param name="configureOptions">An action to configure <see cref="HmacAuthenticationSchemeOptions"/>.</param>
     /// <returns>The <see cref="AuthenticationBuilder"/> for chaining.</returns>
+    /// <remarks>
+    /// The <paramref name="authenticationScheme"/> is used as the keyed service key when registering <typeparamref name="TProvider"/>
+    /// as an <see cref="IHmacKeyProvider"/>. This allows multiple HMAC authentication schemes to be registered, each with its own
+    /// distinct key provider instance resolved by scheme name.
+    /// </remarks>
     public static AuthenticationBuilder AddHmacAuthentication<TProvider>(this AuthenticationBuilder builder, string authenticationScheme, string? displayName, Action<HmacAuthenticationSchemeOptions>? configureOptions)
         where TProvider : class, IHmacKeyProvider
     {
         ArgumentNullException.ThrowIfNull(builder);
 
+        // Ensure the authentication scheme options are registered before adding the authentication scheme
         builder.Services.AddOptions<HmacAuthenticationSchemeOptions>(authenticationScheme);
-        builder.Services.AddHmacAuthentication<TProvider>();
 
+        // Register the keyed provider service before adding the authentication scheme to ensure it is available during scheme configuration
+        builder.Services.TryAddKeyedScoped<IHmacKeyProvider, TProvider>(authenticationScheme);
+
+        // Register the default key provider registration, first in wins if there are multiple registrations for the same service type
+        builder.Services.TryAddScoped<IHmacKeyProvider, TProvider>();
+
+        // Post-configure the authentication scheme options to set the ProviderServiceKey after the keyed provider is registered
+        builder.Services.PostConfigure<HmacAuthenticationSchemeOptions>(authenticationScheme, options => options.ProviderServiceKey = authenticationScheme);
+
+        // Add the authentication scheme with the specified handler and options
         return builder.AddScheme<HmacAuthenticationSchemeOptions, HmacAuthenticationHandler>(authenticationScheme, displayName, configureOptions);
     }
 }

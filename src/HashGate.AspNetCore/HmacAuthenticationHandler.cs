@@ -1,5 +1,6 @@
 // Ignore Spelling: timestamp Hmac
 
+using System.Globalization;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
@@ -7,6 +8,7 @@ using System.Text.Encodings.Web;
 
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -19,15 +21,13 @@ namespace HashGate.AspNetCore;
 /// This handler validates the HMAC signature in the Authorization header, checks the timestamp for replay protection,
 /// retrieves the client secret using <see cref="IHmacKeyProvider"/>, and authenticates the request if all checks pass.
 /// </remarks>
-public class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthenticationSchemeOptions>
+public partial class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthenticationSchemeOptions>
 {
     private static readonly AuthenticateResult InvalidTimestampHeader = AuthenticateResult.Fail("Invalid timestamp header");
     private static readonly AuthenticateResult InvalidContentHashHeader = AuthenticateResult.Fail("Invalid content hash header");
     private static readonly AuthenticateResult InvalidClientName = AuthenticateResult.Fail("Invalid client name");
     private static readonly AuthenticateResult InvalidSignature = AuthenticateResult.Fail("Invalid signature");
     private static readonly AuthenticateResult AuthenticationError = AuthenticateResult.Fail("Authentication error");
-
-    private readonly IHmacKeyProvider _keyProvider;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="HmacAuthenticationHandler"/> class.
@@ -39,12 +39,9 @@ public class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthenticatio
     public HmacAuthenticationHandler(
         IOptionsMonitor<HmacAuthenticationSchemeOptions> options,
         ILoggerFactory logger,
-        UrlEncoder encoder,
-        IHmacKeyProvider keyProvider)
+        UrlEncoder encoder)
         : base(options, logger, encoder)
-    {
-        _keyProvider = keyProvider;
-    }
+    { }
 
     /// <summary>
     /// Handles the authentication process for HMAC authentication.
@@ -62,6 +59,7 @@ public class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthenticatio
             if (string.IsNullOrEmpty(authorizationHeader))
                 return AuthenticateResult.NoResult();
 
+            // Try to parse the HMAC Authorization header
             var result = HmacHeaderParser.TryParse(authorizationHeader, true, out var hmacHeader);
 
             // not an HMAC Authorization header, return no result
@@ -71,52 +69,72 @@ public class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthenticatio
             // invalid HMAC Authorization header format
             if (result != HmacHeaderError.None)
             {
-                Logger.LogWarning("Invalid Authorization header: {Error}", result);
+                LogInvalidAuthorizationHeader(Logger, result);
                 return AuthenticateResult.Fail($"Invalid Authorization header: {result}");
             }
 
-            if (!ValidateTimestamp())
+            if (!ValidateTimestamp(out var requestTime))
             {
-                Logger.LogWarning("Invalid or expired timestamp");
+                // Reject stale/future requests outside the allowed replay-protection window.
+                LogInvalidTimestamp(Logger, requestTime);
                 return InvalidTimestampHeader;
             }
 
             if (!await ValidateContentHash())
             {
-                Logger.LogWarning("Invalid body content hash");
+                // Ensure the request body hash matches what the client signed.
+                LogInvalidContentHash(Logger);
                 return InvalidContentHashHeader;
             }
 
-            var clientSecret = await _keyProvider
+            // Resolve keyed provider when configured; otherwise use the default registration.
+            var keyProvider = string.IsNullOrEmpty(Options.ProviderServiceKey)
+                ? Context.RequestServices.GetRequiredService<IHmacKeyProvider>()
+                : Context.RequestServices.GetRequiredKeyedService<IHmacKeyProvider>(Options.ProviderServiceKey);
+
+            // Retrieve the client secret for the given client ID to verify the signature.
+            var clientSecret = await keyProvider
                 .GetSecretAsync(hmacHeader.Client, Context.RequestAborted)
                 .ConfigureAwait(false);
 
             if (string.IsNullOrEmpty(clientSecret))
+            {
+                // Unknown client IDs are treated as authentication failures.
+                LogInvalidClientName(Logger, hmacHeader.Client);
                 return InvalidClientName;
+            }
 
             var headerValues = GetHeaderValues(hmacHeader.SignedHeaders);
 
+            // Recreate the canonical payload exactly as the client signed it before signature verification.
             var stringToSign = HmacAuthenticationShared.CreateStringToSign(
                 method: Request.Method,
                 pathAndQuery: Request.Path + Request.QueryString,
                 headerValues: headerValues);
 
+            // Generate the expected signature using the client secret and compare it to the signature provided by the client.
             var expectedSignature = HmacAuthenticationShared.GenerateSignature(stringToSign, clientSecret);
             if (!HmacAuthenticationShared.FixedTimeEquals(expectedSignature, hmacHeader.Signature))
+            {
+                // Use constant-time comparison to avoid timing side-channel leakage.
+                LogInvalidSignature(Logger, hmacHeader.Client);
                 return InvalidSignature;
+            }
 
-            var identity = await _keyProvider
+            // At this point, the request is authenticated successfully. Create a claims identity and principal for authorization.
+            var identity = await keyProvider
                 .GenerateClaimsAsync(hmacHeader.Client, Scheme.Name, Context.RequestAborted)
                 .ConfigureAwait(false);
 
             var principal = new ClaimsPrincipal(identity);
             var ticket = new AuthenticationTicket(principal, Scheme.Name);
 
+            // Return a successful authentication ticket so authorization can evaluate policies.
             return AuthenticateResult.Success(ticket);
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Error during HMAC authentication");
+            LogAuthenticationError(Logger, ex, ex.Message);
             return AuthenticationError;
         }
     }
@@ -136,15 +154,19 @@ public class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthenticatio
         return HmacAuthenticationShared.FixedTimeEquals(computedHash, contentHash);
     }
 
-    private bool ValidateTimestamp()
+    private bool ValidateTimestamp(out DateTimeOffset? requestTime)
     {
         var timestampHeader = GetHeaderValue(HmacAuthenticationShared.TimeStampHeaderName);
-        if (!long.TryParse(timestampHeader, out var timestamp))
+        if (!long.TryParse(timestampHeader, NumberStyles.Integer, CultureInfo.InvariantCulture, out var timestamp))
+        {
+            requestTime = default;
             return false;
+        }
 
-        var requestTime = DateTimeOffset.FromUnixTimeSeconds(timestamp);
+        requestTime = DateTimeOffset.FromUnixTimeSeconds(timestamp);
         var now = DateTimeOffset.UtcNow;
-        var timeDifference = Math.Abs((now - requestTime).TotalMinutes);
+
+        var timeDifference = Math.Abs((now - requestTime.Value).TotalMinutes);
 
         // Use configured tolerance from options
         return timeDifference <= Options.ToleranceWindow;
@@ -153,32 +175,31 @@ public class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthenticatio
 
     private async Task<string> GenerateContentHash()
     {
-        // Ensure the request body can be read multiple times
         Request.EnableBuffering();
 
-        // Return empty content hash if there is no body
         if (Request.ContentLength == 0 || Request.Body == Stream.Null)
             return HmacAuthenticationShared.EmptyContentHash;
 
-        await using var memoryStream = new MemoryStream();
-        await Request.BodyReader.CopyToAsync(memoryStream).ConfigureAwait(false);
+        using var sha = SHA256.Create();
 
-        // Reset position after reading
+        int read;
+        var buffer = new byte[81920]; // default Stream.CopyTo buffer size
+
+        // Read the request body in chunks to compute the hash without loading the entire body into memory.
+        while ((read = await Request.Body.ReadAsync(buffer, Context.RequestAborted)) > 0)
+            sha.TransformBlock(buffer, 0, read, null, 0);
+
+        // Finalize the hash computation. Since TransformBlock was used, we need to call TransformFinalBlock with an empty array.
+        sha.TransformFinalBlock([], 0, 0);
+
+        // Reset the request body stream position so it can be read again by the application after authentication.
         Request.Body.Position = 0;
 
-        // If the body is empty after reading, return empty content hash
-        if (memoryStream.Length == 0)
-            return HmacAuthenticationShared.EmptyContentHash;
-
-        var hashBytes = SHA256.HashData(memoryStream.ToArray());
-
-        // 32 bytes SHA256 -> 44 chars base64
+        // Convert the hash to a Base64 string. Use TryToBase64Chars for better performance and less memory allocation.
         Span<char> base64 = stackalloc char[44];
-        if (Convert.TryToBase64Chars(hashBytes, base64, out int charsWritten))
-            return new string(base64[..charsWritten]);
-
-        // if stackalloc is not large enough (should not happen for SHA256)
-        return Convert.ToBase64String(hashBytes);
+        return Convert.TryToBase64Chars(sha.Hash!, base64, out int written)
+            ? new string(base64[..written])
+            : Convert.ToBase64String(sha.Hash!);
     }
 
     private string[] GetHeaderValues(IReadOnlyList<string> signedHeaders)
@@ -193,7 +214,7 @@ public class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthenticatio
 
     private string? GetHeaderValue(string headerName)
     {
-        if (headerName.Equals(HmacAuthenticationShared.HostHeaderName, StringComparison.InvariantCultureIgnoreCase))
+        if (headerName.Equals(HmacAuthenticationShared.HostHeaderName, StringComparison.OrdinalIgnoreCase ))
         {
             if (Request.Headers.TryGetValue(HmacAuthenticationShared.HostHeaderName, out var hostValue))
                 return hostValue.ToString();
@@ -202,8 +223,8 @@ public class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthenticatio
         }
 
         // Handle date headers specifically
-        if (headerName.Equals(HmacAuthenticationShared.DateHeaderName, StringComparison.InvariantCultureIgnoreCase)
-            || headerName.Equals(HmacAuthenticationShared.DateOverrideHeaderName, StringComparison.InvariantCultureIgnoreCase))
+        if (headerName.Equals(HmacAuthenticationShared.DateHeaderName, StringComparison.OrdinalIgnoreCase )
+            || headerName.Equals(HmacAuthenticationShared.DateOverrideHeaderName, StringComparison.OrdinalIgnoreCase ))
         {
             if (Request.Headers.TryGetValue(HmacAuthenticationShared.DateOverrideHeaderName, out var xDateValue))
                 return xDateValue.ToString();
@@ -215,11 +236,11 @@ public class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthenticatio
         }
 
         // Handle content-type and content-length headers specifically
-        if (headerName.Equals(HmacAuthenticationShared.ContentTypeHeaderName, StringComparison.InvariantCultureIgnoreCase))
+        if (headerName.Equals(HmacAuthenticationShared.ContentTypeHeaderName, StringComparison.OrdinalIgnoreCase ))
             return Request.ContentType?.ToString();
 
-        if (headerName.Equals(HmacAuthenticationShared.ContentLengthHeaderName, StringComparison.InvariantCultureIgnoreCase))
-            return Request.ContentLength?.ToString();
+        if (headerName.Equals(HmacAuthenticationShared.ContentLengthHeaderName, StringComparison.OrdinalIgnoreCase ))
+            return Request.ContentLength?.ToString(CultureInfo.InvariantCulture);
 
         // For all other headers, try to get the value directly
         if (Request.Headers.TryGetValue(headerName, out var value))
@@ -227,4 +248,23 @@ public class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthenticatio
 
         return null;
     }
+
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Invalid Authorization header: {HeaderError}")]
+    private static partial void LogInvalidAuthorizationHeader(ILogger logger, HmacHeaderError headerError);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Invalid or expired timestamp: {RequestTime}")]
+    private static partial void LogInvalidTimestamp(ILogger logger, DateTimeOffset? requestTime);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Invalid body content hash")]
+    private static partial void LogInvalidContentHash(ILogger logger);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Invalid client name: {Client}")]
+    private static partial void LogInvalidClientName(ILogger logger, string client);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Invalid signature for client: {Client}")]
+    private static partial void LogInvalidSignature(ILogger logger, string client);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Error during HMAC authentication: {ErrorMessage}")]
+    private static partial void LogAuthenticationError(ILogger logger, Exception exception, string errorMessage);
 }

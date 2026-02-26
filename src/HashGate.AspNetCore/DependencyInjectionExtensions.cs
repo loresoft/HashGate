@@ -14,6 +14,7 @@ public static class DependencyInjectionExtensions
     /// <param name="services">The service collection to add the authentication services to.</param>
     /// <param name="configure">An optional delegate to configure <see cref="HmacAuthenticationSchemeOptions"/>.</param>
     /// <returns>The same <see cref="IServiceCollection"/> instance so that additional calls can be chained.</returns>
+    [Obsolete("Use AuthenticationBuilder.AddHmacAuthentication<TProvider> instead.")]
     public static IServiceCollection AddHmacAuthentication(this IServiceCollection services, Action<HmacAuthenticationSchemeOptions>? configure = null)
         => AddHmacAuthentication<HmacKeyProvider>(services, configure);
 
@@ -24,6 +25,7 @@ public static class DependencyInjectionExtensions
     /// <param name="services">The service collection to add the authentication services to.</param>
     /// <param name="configure">An optional delegate to configure <see cref="HmacAuthenticationSchemeOptions"/>.</param>
     /// <returns>The same <see cref="IServiceCollection"/> instance so that additional calls can be chained.</returns>
+    [Obsolete("Use AuthenticationBuilder.AddHmacAuthentication<TProvider> instead.")]
     public static IServiceCollection AddHmacAuthentication<TProvider>(this IServiceCollection services, Action<HmacAuthenticationSchemeOptions>? configure = null)
         where TProvider : class, IHmacKeyProvider
     {

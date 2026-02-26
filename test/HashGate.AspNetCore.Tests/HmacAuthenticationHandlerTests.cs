@@ -5,6 +5,7 @@ using System.Text.Encodings.Web;
 
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -28,19 +29,23 @@ public class HmacAuthenticationHandlerTests
         _urlEncoder = UrlEncoder.Default;
     }
 
-    private HmacAuthenticationHandler CreateHandler(string key = "Test-HMAC-Key")
+    private HmacAuthenticationHandler CreateHandler()
     {
-        var provider = new TestHmacKeyProvider(key);
-        return new HmacAuthenticationHandler(_optionsMonitor, _loggerFactory, _urlEncoder, provider);
+        return new HmacAuthenticationHandler(_optionsMonitor, _loggerFactory, _urlEncoder);
     }
 
     private static DefaultHttpContext CreateHttpContext(
         string method = "GET",
         string url = "/",
         string? content = null,
-        string secretKey = "Test-HMAC-Key")
+        string secretKey = "Test-HMAC-Key",
+        string? providerKey = null)
     {
         var context = new DefaultHttpContext();
+
+        var services = new ServiceCollection();
+        services.AddSingleton<IHmacKeyProvider>(new TestHmacKeyProvider(providerKey ?? secretKey));
+        context.RequestServices = services.BuildServiceProvider();
 
         // Set HTTP method
         context.Request.Method = method;
@@ -104,8 +109,8 @@ public class HmacAuthenticationHandlerTests
     [Fact]
     public async Task HandleAuthenticateAsync_ReturnsFail_WhenSignatureIsInvalid()
     {
-        var handler = CreateHandler("Wrong-Key");
-        var context = CreateHttpContext(secretKey: "Test-HMAC-Key");
+        var handler = CreateHandler();
+        var context = CreateHttpContext(secretKey: "Test-HMAC-Key", providerKey: "Wrong-Key");
         await handler.InitializeAsync(_scheme, context);
 
         var result = await handler.AuthenticateAsync();
