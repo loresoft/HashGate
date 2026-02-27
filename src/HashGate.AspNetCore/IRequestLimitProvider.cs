@@ -5,7 +5,7 @@ namespace HashGate.AspNetCore;
 /// </summary>
 /// <remarks>
 /// When registered via <see cref="RequestLimitExtensions.AddHmacRateLimiter{TProvider}"/>,
-/// the middleware calls <see cref="Get"/> on every request to determine the effective limit
+/// the middleware calls <see cref="GetAsync"/> on every request to determine the effective limit
 /// for the requesting client. Return <see langword="null"/> to fall back to the defaults
 /// configured on <see cref="RequestLimitOptions"/>.
 /// </remarks>
@@ -16,5 +16,6 @@ public interface IRequestLimitProvider
     /// client should use the defaults from <see cref="RequestLimitOptions"/>.
     /// </summary>
     /// <param name="client">The client identifier extracted from the HMAC Authorization header.</param>
-    RequestLimit? Get(string client);
+    /// <param name="cancellationToken">A token to cancel the asynchronous operation.</param>
+    Task<RequestLimit?> GetAsync(string client, CancellationToken cancellationToken = default);
 }

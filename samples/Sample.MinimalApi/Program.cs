@@ -23,11 +23,22 @@ public static class Program
         builder.Services.AddOpenApi();
         builder.Services.AddEndpointsApiExplorer();
 
-        builder.Services.AddHmacRateLimiter(configure: options =>
-        {
-            options.RequestsPerPeriod = 10;
-            options.BurstFactor = 1;
-        });
+        builder.Services
+            .AddHmacRateLimiter(
+                policyName: "UserPolicy",
+                configure: options =>
+                {
+                    options.RequestsPerPeriod = 2;
+                    options.BurstFactor = 1;
+                }
+            )
+            .AddHmacRateLimiter(
+                configure: options =>
+                {
+                    options.RequestsPerPeriod = 10;
+                    options.BurstFactor = 1;
+                }
+            );
 
         var application = builder.Build();
 
@@ -48,19 +59,20 @@ public static class Program
 
         application
             .MapPost("/weather", (Weather weather) => Results.Ok(weather))
-            .WithName("PostWeather");
+            .WithName("PostWeather")
+            .RequireHmacRateLimiting();
 
         application
             .MapGet("/users", () => UserFaker.Instance.Generate(10))
             .WithName("GetUsers")
             .RequireAuthorization()
-            .RequireHmacRateLimiting();
+            .RequireHmacRateLimiting("UserPolicy");
 
         application
             .MapPost("/users", (User user) => Results.Ok(user))
             .WithName("PostUser")
             .RequireAuthorization()
-            .RequireHmacRateLimiting();
+            .RequireHmacRateLimiting("UserPolicy");
 
         application
             .MapGet("/addresses", () => AddressFaker.Instance.Generate(10))

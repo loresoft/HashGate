@@ -29,11 +29,11 @@ public class RequestLimitProviderTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void Get_WhenClientNotInConfiguration_ReturnsNull()
+    public async Task GetAsync_WhenClientNotInConfiguration_ReturnsNull()
     {
         var provider = CreateProvider();
 
-        var result = provider.Get("unknown-client");
+        var result = await provider.GetAsync("unknown-client", TestContext.Current.CancellationToken);
 
         Assert.Null(result);
     }
@@ -43,22 +43,22 @@ public class RequestLimitProviderTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void Get_WhenClientFullyConfigured_ReturnsConfiguredRequestsPerPeriod()
+    public async Task GetAsync_WhenClientFullyConfigured_ReturnsConfiguredRequestsPerPeriod()
     {
         var provider = CreateProvider();
 
-        var result = provider.Get("full-client");
+        var result = await provider.GetAsync("full-client", TestContext.Current.CancellationToken);
 
         Assert.NotNull(result);
         Assert.Equal(100, result.Value.RequestsPerPeriod);
     }
 
     [Fact]
-    public void Get_WhenClientFullyConfigured_ReturnsConfiguredBurstFactor()
+    public async Task GetAsync_WhenClientFullyConfigured_ReturnsConfiguredBurstFactor()
     {
         var provider = CreateProvider();
 
-        var result = provider.Get("full-client");
+        var result = await provider.GetAsync("full-client", TestContext.Current.CancellationToken);
 
         Assert.NotNull(result);
         Assert.Equal(3, result.Value.BurstFactor);
@@ -69,13 +69,13 @@ public class RequestLimitProviderTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void Get_WhenBurstFactorNotConfigured_FallsBackToOptionsDefault()
+    public async Task GetAsync_WhenBurstFactorNotConfigured_FallsBackToOptionsDefault()
     {
         const int defaultBurstFactor = 7;
         var provider = CreateProvider(configure: o => o.BurstFactor = defaultBurstFactor);
 
         // rpp-only-client has RequestsPerPeriod=50 in config but no BurstFactor
-        var result = provider.Get("rpp-only-client");
+        var result = await provider.GetAsync("rpp-only-client", TestContext.Current.CancellationToken);
 
         Assert.NotNull(result);
         Assert.Equal(50, result.Value.RequestsPerPeriod);
@@ -83,13 +83,13 @@ public class RequestLimitProviderTests
     }
 
     [Fact]
-    public void Get_WhenRequestsPerPeriodNotConfigured_FallsBackToOptionsDefault()
+    public async Task GetAsync_WhenRequestsPerPeriodNotConfigured_FallsBackToOptionsDefault()
     {
         const int defaultRpp = 99;
         var provider = CreateProvider(configure: o => o.RequestsPerPeriod = defaultRpp);
 
         // bf-only-client has BurstFactor=5 in config but no RequestsPerPeriod
-        var result = provider.Get("bf-only-client");
+        var result = await provider.GetAsync("bf-only-client", TestContext.Current.CancellationToken);
 
         Assert.NotNull(result);
         Assert.Equal(defaultRpp, result.Value.RequestsPerPeriod);    // fell back
@@ -101,23 +101,23 @@ public class RequestLimitProviderTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void Get_WithCustomSectionName_ReadsFromCorrectSection()
+    public async Task GetAsync_WithCustomSectionName_ReadsFromCorrectSection()
     {
         var provider = CreateProvider(configure: o => o.SectionName = "CustomRateLimits");
 
-        var result = provider.Get("custom-client");
+        var result = await provider.GetAsync("custom-client", TestContext.Current.CancellationToken);
 
         Assert.NotNull(result);
         Assert.Equal(new RequestLimit(RequestsPerPeriod: 200, BurstFactor: 4), result.Value);
     }
 
     [Fact]
-    public void Get_WithCustomSectionName_WhenClientNotInSection_ReturnsNull()
+    public async Task GetAsync_WithCustomSectionName_WhenClientNotInSection_ReturnsNull()
     {
         var provider = CreateProvider(configure: o => o.SectionName = "CustomRateLimits");
 
         // full-client exists under HmacRateLimits but not CustomRateLimits
-        var result = provider.Get("full-client");
+        var result = await provider.GetAsync("full-client", TestContext.Current.CancellationToken);
 
         Assert.Null(result);
     }

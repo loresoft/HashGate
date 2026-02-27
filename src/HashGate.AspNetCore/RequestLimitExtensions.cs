@@ -19,6 +19,10 @@ public static class RequestLimitExtensions
     /// </summary>
     public const string Policy = "hmac-client";
 
+    // Key used to stash the resolved policy name in HttpContext.Items so OnRejectedAsync
+    // can look up the correct named RequestLimitOptions without knowing the policy name.
+    private static readonly object _policyItemKey = new();
+
     /// <summary>Returns the resolved rate limiting policy name, lowercased.</summary>
     /// <param name="policyName">
     /// Optional suffix that scopes the policy name, enabling multiple independent limiters in
@@ -60,7 +64,7 @@ public static class RequestLimitExtensions
     /// </summary>
     /// <remarks>
     /// <typeparamref name="TProvider"/> is registered as a <see cref="IRequestLimitProvider"/> service.
-    /// On each request the provider's <see cref="IRequestLimitProvider.Get"/> is called; returning
+    /// On each request the provider's <see cref="IRequestLimitProvider.GetAsync"/> is called; returning
     /// <see langword="null"/> falls back to <see cref="RequestLimitOptions.RequestsPerPeriod"/> and
     /// <see cref="RequestLimitOptions.BurstFactor"/>. Use <see cref="RequestLimitProvider"/> for
     /// configuration-backed per-client limits.
@@ -81,7 +85,9 @@ public static class RequestLimitExtensions
         Action<RequestLimitOptions>? configure = null)
         where TProvider : class, IRequestLimitProvider
     {
-        services.TryAdd(ServiceDescriptor.Describe(typeof(IRequestLimitProvider), typeof(TProvider), lifetime));
+        var policy = PolicyName(policyName);
+        services.TryAdd(new ServiceDescriptor(typeof(IRequestLimitProvider), policy, typeof(TProvider), lifetime));
+
         return AddHmacRateLimiterCore(services, policyName, configure);
     }
 
@@ -108,16 +114,16 @@ public static class RequestLimitExtensions
     {
         var policy = PolicyName(policyName);
 
-        services.AddOptions<RequestLimitOptions>();
+        services.AddOptions<RequestLimitOptions>(policy);
         if (configure != null)
-            services.Configure(configure);
+            services.Configure(policy, configure);
 
         services.AddRateLimiter(options =>
         {
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
             options.OnRejected = OnRejectedAsync;
 
-            options.AddPolicy(policy, Partition);
+            options.AddPolicy(policy, httpContext => Partition(httpContext, policy));
         });
 
         return services;
@@ -127,7 +133,9 @@ public static class RequestLimitExtensions
     {
         var httpContext = context.HttpContext;
 
-        var opts = httpContext.RequestServices.GetRequiredService<IOptions<RequestLimitOptions>>().Value;
+        // Look up the policy name and options to determine the appropriate Retry-After value for this request.
+        var policyName = httpContext.Items[_policyItemKey] as string ?? Options.DefaultName;
+        var opts = httpContext.RequestServices.GetRequiredService<IOptionsMonitor<RequestLimitOptions>>().Get(policyName);
 
         // Prefer the lease's own retry hint; token buckets replenish continuously so the lease
         // knows exactly when tokens will be available. Fall back to a short window within the period.
@@ -142,10 +150,14 @@ public static class RequestLimitExtensions
         await httpContext.Response.WriteAsync($"Rate limit exceeded. Retry after {retrySeconds}s.", token);
     }
 
-    private static RateLimitPartition<string> Partition(HttpContext httpContext)
+    private static RateLimitPartition<string> Partition(HttpContext httpContext, string policy)
     {
         var opts = httpContext.RequestServices
-            .GetRequiredService<IOptions<RequestLimitOptions>>().Value;
+            .GetRequiredService<IOptionsMonitor<RequestLimitOptions>>()
+            .Get(policy);
+
+        // Stash the policy name so OnRejectedAsync can look up the same named options.
+        httpContext.Items[_policyItemKey] = policy;
 
         var authorizationHeader = httpContext.Request.Headers.Authorization.ToString();
 
@@ -161,9 +173,16 @@ public static class RequestLimitExtensions
         var endpoint = opts.EndpointSelector(httpContext).ToLowerInvariant();
 
         // Per-client override: provider returns null → use options defaults.
-        // GetService returns null when no IRequestLimitProvider is registered (non-generic overload).
-        var provider = httpContext.RequestServices.GetService<IRequestLimitProvider>();
-        var limit = provider?.Get(client) ?? new RequestLimit(opts.RequestsPerPeriod, opts.BurstFactor);
+        // Keyed lookup targets the provider registered for this specific policy;
+        // non-keyed fallback preserves backward compat if no keyed registration exists.
+        var provider = httpContext.RequestServices.GetKeyedService<IRequestLimitProvider>(policy)
+            ?? httpContext.RequestServices.GetService<IRequestLimitProvider>();
+
+        // default to options if provider doesn't exist
+        // ASP.NET Core's partition callback is synchronous; GetAwaiter().GetResult() is safe here
+        // because ASP.NET Core has no SynchronizationContext.
+        var limit = provider?.GetAsync(client, httpContext.RequestAborted).GetAwaiter().GetResult()
+            ?? new RequestLimit(opts.RequestsPerPeriod, opts.BurstFactor);
 
         // Include a content-derived version so that limit changes in configuration
         // cause new partition keys — and thus fresh token buckets — rather than

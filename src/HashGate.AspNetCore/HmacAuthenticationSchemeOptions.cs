@@ -30,5 +30,13 @@ public class HmacAuthenticationSchemeOptions : AuthenticationSchemeOptions
     /// When set, the keyed service registered under this key is used instead of the default provider.
     /// </summary>
     public string? ProviderServiceKey { get; set; }
+
+    /// <summary>
+    /// Gets or sets the duration for which claims are cached.
+    /// </summary>
+    /// <value>
+    /// The time span for caching claims. If <c>null</c>, claims are not cached.
+    /// </value>
+    public TimeSpan? CacheTime { get; set; }
 }
 

@@ -35,7 +35,6 @@ public partial class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthe
     /// <param name="options">The options monitor for <see cref="HmacAuthenticationSchemeOptions"/>.</param>
     /// <param name="logger">The logger factory.</param>
     /// <param name="encoder">The URL encoder.</param>
-    /// <param name="keyProvider">The HMAC key provider used to retrieve client secrets.</param>
     public HmacAuthenticationHandler(
         IOptionsMonitor<HmacAuthenticationSchemeOptions> options,
         ILoggerFactory logger,

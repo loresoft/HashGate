@@ -75,9 +75,9 @@ public sealed class TestApplicationFactory : IDisposable
         });
     }
 
-    private static async Task<IResult> EchoPostAsync(HttpContext ctx)
+    private static async Task<IResult> EchoPostAsync(HttpRequest request)
     {
-        using var reader = new StreamReader(ctx.Request.Body, Encoding.UTF8);
+        using var reader = new StreamReader(request.Body, Encoding.UTF8);
         var body = await reader.ReadToEndAsync();
         return Results.Ok(new { body });
     }

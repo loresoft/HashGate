@@ -52,7 +52,8 @@ public class RequestLimitProvider : IRequestLimitProvider
     /// <see cref="RequestLimitOptions"/> rather than being treated as zero.
     /// </summary>
     /// <param name="client">The client identifier extracted from the HMAC Authorization header.</param>
-    public RequestLimit? Get(string client)
+    /// <param name="cancellationToken">A token to cancel the asynchronous operation.</param>
+    public Task<RequestLimit?> GetAsync(string client, CancellationToken cancellationToken = default)
     {
         var opts = _options.CurrentValue;
 
@@ -66,7 +67,7 @@ public class RequestLimitProvider : IRequestLimitProvider
                 "Client '{Client}' not found in rate limit configuration section '{SectionName}'.",
                 client, opts.SectionName);
 
-            return null;
+            return Task.FromResult<RequestLimit?>(null);
         }
 
         // Read each field independently so partial configuration is valid.
@@ -74,6 +75,6 @@ public class RequestLimitProvider : IRequestLimitProvider
         var rpp = clientSection.GetValue<int?>("RequestsPerPeriod") ?? opts.RequestsPerPeriod;
         var bf = clientSection.GetValue<int?>("BurstFactor") ?? opts.BurstFactor;
 
-        return new RequestLimit(RequestsPerPeriod: rpp, BurstFactor: bf);
+        return Task.FromResult<RequestLimit?>(new RequestLimit(RequestsPerPeriod: rpp, BurstFactor: bf));
     }
 }
