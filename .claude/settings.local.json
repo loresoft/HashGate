@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xargs:*)",
+      "Bash(dir:*)",
+      "Bash(dotnet:*)",
+      "Bash(powershell -Command:*)",
+      "Bash(dotnet-ildasm:*)"
+    ]
+  }
+}
