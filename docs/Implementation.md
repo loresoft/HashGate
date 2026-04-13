@@ -53,6 +53,8 @@ Every authenticated request MUST include these headers:
 3. **x-content-sha256**: Base64-encoded SHA256 hash of request body (required even for empty bodies)
 4. **Authorization**: HMAC authentication header
 
+> **Important:** The `x-timestamp` and `x-content-sha256` headers are **required** entries in the `SignedHeaders` parameter of the Authorization header. The server enforces this and will reject any request that does not include both headers in `SignedHeaders`. This ensures the timestamp and body hash are cryptographically bound to the signature, providing replay protection and body integrity guarantees.
+
 ### String-to-Sign Format
 
 The canonical string for signing follows this exact format and is critical for generating a valid HMAC signature. Any deviation from this format will result in authentication failures.
@@ -151,6 +153,7 @@ HMAC Client={CLIENT_ID}&SignedHeaders={HEADER_NAMES}&Signature={BASE64_SIGNATURE
 
 - Semicolon-separated list of header names included in the signature
 - Order must match the order used in string-to-sign construction
+- **Must** include `x-timestamp` and `x-content-sha256` (server-enforced)
 - Default: `host;x-timestamp;x-content-sha256`
 - Example with custom headers: `host;x-timestamp;x-content-sha256;content-type;user-agent`
 
@@ -245,6 +248,7 @@ HMAC Client=demo&SignedHeaders=host&Signature=abc123
 
 ### Validation Rules
 
+- **Signed Headers**: `x-timestamp` and `x-content-sha256` must be included in `SignedHeaders` (server-enforced)
 - **Timestamp**: Must be within server's time tolerance window (typically 5 minutes)
 - **Content Hash**: Must match actual request body hash
 - **Signature**: Must match server's calculated signature
@@ -583,12 +587,12 @@ try {
 ### Default Signed Headers
 
 - **host**: Target host header
-- **x-timestamp**: Unix timestamp of request
-- **x-content-sha256**: SHA256 hash of request body (required even for empty bodies)
+- **x-timestamp**: Unix timestamp of request (**required** — the server rejects requests that omit this from `SignedHeaders`)
+- **x-content-sha256**: SHA256 hash of request body, required even for empty bodies (**required** — the server rejects requests that omit this from `SignedHeaders`)
 
 ### Custom Signed Headers
 
-You can include additional headers in the signature for enhanced security:
+You can include additional headers beyond the required set in the signature for enhanced security:
 
 ```csharp
 // .NET

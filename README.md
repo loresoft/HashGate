@@ -227,15 +227,15 @@ Semicolon-separated list of HTTP header names that were included in the signatur
 
 #### Required Headers
 
-The following headers must always be included:
+The following headers **must** always be included in `SignedHeaders`. The server enforces their presence and will reject requests that omit them:
 
 - `host`
-- `x-timestamp`
-- `x-content-sha256`
+- `x-timestamp` — required for replay protection; cryptographically binds the timestamp to the signature
+- `x-content-sha256` — required for body integrity; cryptographically binds the content hash to the signature
 
 #### Optional Headers
 
-You can include additional headers for enhanced security:
+You can include additional headers beyond the required set for enhanced security:
 
 ```text
 host;x-timestamp;x-content-sha256;content-type;accept
@@ -402,6 +402,7 @@ JavaScript/Node.js client implementation:
 
 - **Always use HTTPS** in production environments
 - **Protect HMAC secret keys** - never expose them in client-side code
+- **Always include required signed headers** - `x-timestamp` and `x-content-sha256` must be in `SignedHeaders` (the server enforces this)
 - **Monitor timestamp tolerance** - shorter windows provide better security
 - **Rotate keys regularly** - implement key rotation policies
 - **Log authentication failures** - monitor for potential attacks
