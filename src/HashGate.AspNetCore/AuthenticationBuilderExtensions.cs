@@ -109,6 +109,10 @@ public static class AuthenticationBuilderExtensions
         // Ensure the authentication scheme options are registered before adding the authentication scheme
         builder.Services.AddOptions<HmacAuthenticationSchemeOptions>(authenticationScheme);
 
+        // Register the default replay protection implementation. Requires HybridCache to be registered
+        // by the caller (e.g. services.AddHybridCache()) when EnableReplayProtection = true.
+        builder.Services.TryAddSingleton<IHmacReplayProtection, DefaultHmacReplayProtection>();
+
         // Register the keyed provider service before adding the authentication scheme to ensure it is available during scheme configuration
         builder.Services.TryAddKeyedScoped<IHmacKeyProvider, TProvider>(authenticationScheme);
 

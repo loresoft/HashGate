@@ -74,11 +74,15 @@ public class HmacAuthenticationHandlerTests
         // set content hash header
         context.Request.Headers.Append(HmacAuthenticationShared.ContentHashHeaderName, contentHashEncoded);
 
+        // set nonce header
+        var nonce = Guid.NewGuid().ToString("N");
+        context.Request.Headers.Append(HmacAuthenticationShared.NonceHeaderName, nonce);
+
         // Generate the Authorization header
         var stringToSign = HmacAuthenticationShared.CreateStringToSign(
             method: context.Request.Method,
             pathAndQuery: context.Request.Path + context.Request.QueryString,
-            headerValues: [context.Request.Host.ToString(), timestamp, contentHashEncoded]
+            headerValues: [context.Request.Host.ToString(), timestamp, contentHashEncoded, nonce]
         );
 
         var signature = HmacAuthenticationShared.GenerateSignature(stringToSign, secretKey);

@@ -16,7 +16,8 @@ A HMAC (Hash-based Message Authentication Code) authentication system for ASP.NE
 - **Secure HMAC-SHA256 authentication** with timestamp validation
 - **Easy integration** with ASP.NET Core authentication system
 - **Client library included** for .NET HttpClient integration
-- **Request replay protection** with configurable time windows
+- **Request replay protection** with configurable time windows and optional signature replay cache
+- **Nonce support** for guaranteed per-request signature uniqueness
 - **Highly configurable** key providers and validation options
 
 ## Overview
@@ -190,6 +191,7 @@ Every authenticated request must include these headers:
 | **Host**             | Internet host and port number                                                                                      |
 | **x-timestamp**      | Unix timestamp (seconds since epoch) when the request was created. Must be within 5 minutes of current server time |
 | **x-content-sha256** | Base64-encoded SHA256 hash of the request body. Required even for requests with empty bodies                       |
+| **x-nonce**          | Optional unique per-request value (GUID). Required when the server has `EnableReplayProtection` enabled            |
 | **Authorization**    | HMAC authentication information (see format details below)                                                         |
 
 ### Example Request
@@ -198,8 +200,9 @@ Every authenticated request must include these headers:
 GET /api/users?page=1 HTTP/1.1
 Host: api.example.com
 x-timestamp: 1722776096
+x-nonce: a3f1c2d4e5b64a7f8c9d0e1f2a3b4c5d
 x-content-sha256: 47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=
-Authorization: HMAC Client=123456789&SignedHeaders=host;x-timestamp;x-content-sha256&Signature=AbCdEf123456...
+Authorization: HMAC Client=123456789&SignedHeaders=host;x-timestamp;x-content-sha256;x-nonce&Signature=AbCdEf123456...
 ```
 
 ## Authorization Header Format
@@ -296,6 +299,49 @@ builder.Services
     });
 ```
 
+### Replay Protection
+
+HashGate provides two layers of replay protection:
+
+**Layer 1 — Timestamp window (always active):** The server rejects any request whose `x-timestamp` falls outside `ToleranceWindow` minutes of server time (default: 5 minutes).
+
+**Layer 2 — Signature replay cache (opt-in):** Enable `EnableReplayProtection` on the server to record each validated signature. If the same signature arrives again within its validity window, it is immediately rejected — even within the same second.
+
+```csharp
+// Server — register HybridCache, then enable signature replay protection
+builder.Services.AddHybridCache();
+builder.Services
+    .AddAuthentication()
+    .AddHmacAuthentication(options =>
+    {
+        options.EnableReplayProtection = true;
+    });
+```
+
+> **Important — nonce:** The timestamp has only one-second resolution, so two identical requests sent within the same second produce the same signature and the second would be falsely rejected. Every request automatically includes a unique `x-nonce` header, making each signature cryptographically unique.
+
+```csharp
+// Client — x-nonce is always included automatically
+services.AddHmacAuthentication(options =>
+{
+    options.Client = "MyClientId";
+    options.Secret = "my-secret-key";
+});
+```
+
+**Multi-server / distributed deployments:** The default `DefaultHmacReplayProtection` is backed by `HybridCache` (in-process L1). Register a distributed cache (e.g. Redis) alongside it; `HybridCache` will automatically promote it to the L2 backing store — no custom code required.
+
+```csharp
+// Add Redis as the distributed backing store for replay protection
+builder.Services.AddStackExchangeRedisCache(options =>
+    options.Configuration = builder.Configuration.GetConnectionString("Redis"));
+
+builder.Services.AddHybridCache();
+builder.Services
+    .AddAuthentication()
+    .AddHmacAuthentication(options => options.EnableReplayProtection = true);
+```
+
 ### Client Configuration
 
 ```csharp
@@ -337,7 +383,7 @@ public class DatabaseKeyProvider : IHmacKeyProvider
     {
         var identity = new ClaimsIdentity(scheme);
         identity.AddClaim(new Claim(ClaimTypes.Name, client));
-        
+
         // Add additional claims based on your requirements
         var model = await _keyRepository.GetClientAsync(client, cancellationToken);
         if (model != null)
@@ -345,7 +391,7 @@ public class DatabaseKeyProvider : IHmacKeyProvider
             identity.AddClaim(new Claim("display_name", model.DisplayName));
             // Add role claims, permissions, etc. as needed
         }
-        
+
         return identity;
     }
 }
@@ -424,6 +470,9 @@ JavaScript/Node.js client implementation:
 
 3. **"Missing required headers"**:
     - Ensure `host`, `x-timestamp`, and `x-content-sha256` headers are present
+
+4. **"Replayed signature" errors when `EnableReplayProtection` is enabled**:
+    - Every request automatically includes a unique `x-nonce` header, ensuring every signature is unique
 
 ## Contributing
 

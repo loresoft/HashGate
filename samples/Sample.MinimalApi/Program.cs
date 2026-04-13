@@ -15,6 +15,9 @@ public static class Program
         var builder = WebApplication.CreateBuilder(args);
 
         builder.Services
+            .AddHybridCache();
+
+        builder.Services
             .AddAuthentication()
             .AddHmacAuthentication();
 

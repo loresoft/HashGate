@@ -27,6 +27,7 @@ public partial class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthe
     private static readonly AuthenticateResult InvalidContentHashHeader = AuthenticateResult.Fail("Invalid content hash header");
     private static readonly AuthenticateResult InvalidClientName = AuthenticateResult.Fail("Invalid client name");
     private static readonly AuthenticateResult InvalidSignature = AuthenticateResult.Fail("Invalid signature");
+    private static readonly AuthenticateResult ReplayedSignature = AuthenticateResult.Fail("Replayed signature");
     private static readonly AuthenticateResult AuthenticationError = AuthenticateResult.Fail("Authentication error");
 
     /// <summary>
@@ -118,6 +119,25 @@ public partial class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthe
                 // Use constant-time comparison to avoid timing side-channel leakage.
                 LogInvalidSignature(Logger, hmacHeader.Client);
                 return InvalidSignature;
+            }
+
+            if (Options.EnableReplayProtection)
+            {
+                var replayProtection = Context.RequestServices.GetService<IHmacReplayProtection>();
+                if (replayProtection is not null)
+                {
+                    // The signature is valid until the far edge of the tolerance window from the request timestamp.
+                    var signatureExpiry = requestTime!.Value.AddMinutes(Options.ToleranceWindow);
+                    var isNew = await replayProtection
+                        .TryStoreAsync(hmacHeader.Signature, signatureExpiry, Context.RequestAborted)
+                        .ConfigureAwait(false);
+
+                    if (!isNew)
+                    {
+                        LogReplayedSignature(Logger, hmacHeader.Client);
+                        return ReplayedSignature;
+                    }
+                }
             }
 
             // At this point, the request is authenticated successfully. Create a claims identity and principal for authorization.
@@ -263,6 +283,9 @@ public partial class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthe
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Invalid signature for client: {Client}")]
     private static partial void LogInvalidSignature(ILogger logger, string client);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Replayed signature detected for client: {Client}")]
+    private static partial void LogReplayedSignature(ILogger logger, string client);
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Error during HMAC authentication: {ErrorMessage}")]
     private static partial void LogAuthenticationError(ILogger logger, Exception exception, string errorMessage);

@@ -7,6 +7,7 @@ import hashlib
 import hmac
 import base64
 import time
+import uuid
 from urllib.parse import urlparse, urlencode
 from typing import Optional, Dict, Any, List
 import requests
@@ -24,8 +25,9 @@ class HmacClient:
     DEFAULT_SCHEME_NAME = "HMAC"
     TIME_STAMP_HEADER_NAME = "x-timestamp"
     CONTENT_HASH_HEADER_NAME = "x-content-sha256"
+    NONCE_HEADER_NAME = "x-nonce"
     EMPTY_CONTENT_HASH = "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU="
-    DEFAULT_SIGNED_HEADERS = ["host", TIME_STAMP_HEADER_NAME, CONTENT_HASH_HEADER_NAME]
+    DEFAULT_SIGNED_HEADERS = ["host", TIME_STAMP_HEADER_NAME, CONTENT_HASH_HEADER_NAME, NONCE_HEADER_NAME]
 
     def __init__(self, client: str, secret: str, base_url: str = "https://localhost:7134"):
         """
@@ -133,8 +135,11 @@ class HmacClient:
         # Calculate content hash
         content_hash = self.calculate_content_hash(content)
 
+        # Generate nonce (unique per-request value)
+        nonce = str(uuid.uuid4())
+
         # Create header values in the order of DEFAULT_SIGNED_HEADERS
-        header_values = [host, timestamp, content_hash]
+        header_values = [host, timestamp, content_hash, nonce]
 
         # Create string to sign
         string_to_sign = self.create_string_to_sign(method, path_and_query, header_values)
@@ -150,6 +155,7 @@ class HmacClient:
             "Host": host,
             self.TIME_STAMP_HEADER_NAME: timestamp,
             self.CONTENT_HASH_HEADER_NAME: content_hash,
+            self.NONCE_HEADER_NAME: nonce,
             "Authorization": authorization_header
         }
 

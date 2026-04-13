@@ -41,6 +41,7 @@ This section provides the essential constants, algorithms, and formats needed to
 DEFAULT_SCHEME_NAME = "HMAC"
 TIME_STAMP_HEADER_NAME = "x-timestamp"
 CONTENT_HASH_HEADER_NAME = "x-content-sha256"
+NONCE_HEADER_NAME = "x-nonce"
 DEFAULT_SIGNED_HEADERS = ["host", "x-timestamp", "x-content-sha256"]
 ```
 
@@ -51,7 +52,8 @@ Every authenticated request MUST include these headers:
 1. **Host**: The target host (including port if not standard)
 2. **x-timestamp**: Unix timestamp in seconds
 3. **x-content-sha256**: Base64-encoded SHA256 hash of request body (required even for empty bodies)
-4. **Authorization**: HMAC authentication header
+4. **x-nonce**: A unique per-request value (a GUID). Always included in every request; makes every signature cryptographically unique and is required for reliable replay protection.
+5. **Authorization**: HMAC authentication header
 
 ### String-to-Sign Format
 
@@ -234,13 +236,14 @@ HMAC Client=demo&SignedHeaders=host&Signature=abc123
 ```text
 1. Extract host from request URL
 2. Generate current Unix timestamp
-3. Calculate SHA256 hash of request body
-4. Create header values array: [host, timestamp, content_hash]
-5. Create string-to-sign: "METHOD\nPATH\nheader_values_joined_by_semicolon"
-6. Generate HMAC-SHA256 signature of string-to-sign using secret key
-7. Base64 encode the signature
-8. Create authorization header with client ID, signed headers, and signature
-9. Add all required headers to request
+3. Generate a unique nonce (GUID) — required when server EnableReplayProtection is enabled
+4. Calculate SHA256 hash of request body
+5. Create header values array: [host, timestamp, content_hash] (+ nonce if used)
+6. Create string-to-sign: "METHOD\nPATH\nheader_values_joined_by_semicolon"
+7. Generate HMAC-SHA256 signature of string-to-sign using secret key
+8. Base64 encode the signature
+9. Create authorization header with client ID, signed headers, and signature
+10. Add all required headers to request (including x-nonce if used)
 ```
 
 ### Validation Rules
@@ -270,13 +273,15 @@ Every authenticated request must include these headers:
 | **Host**             | Internet host and port number                                                                                      |
 | **x-timestamp**      | Unix timestamp (seconds since epoch) when the request was created. Must be within 5 minutes of current server time |
 | **x-content-sha256** | Base64-encoded SHA256 hash of the request body. Required even for requests with empty bodies                       |
+| **x-nonce**          | Unique per-request value (GUID). Required when the server has `EnableReplayProtection` enabled                     |
 | **Authorization**    | HMAC authentication information (see format details below)                                                         |
 
 ```http
 Host: api.example.com
 x-timestamp: 1640995200
+x-nonce: a3f1c2d4e5b64a7f8c9d0e1f2a3b4c5d
 x-content-sha256: 47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=
-Authorization: HMAC Client=your-client-id&SignedHeaders=host;x-timestamp;x-content-sha256&Signature=abc123...
+Authorization: HMAC Client=your-client-id&SignedHeaders=host;x-timestamp;x-content-sha256;x-nonce&Signature=abc123...
 ```
 
 ### 3. String to Sign Format
@@ -685,15 +690,33 @@ const client = new HmacClient(
 - For empty body, use the empty content hash constant (`47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=`)
 - Remember that content hash is required even for GET requests and other methods with empty bodies
 
-#### 4. Timestamp Validation Errors
+#### 4. Request Replay Protection
 
-**Symptoms**: "Invalid timestamp header" error
+HashGate provides two layers of replay protection:
 
-**Solutions**:
+**Layer 1 — Timestamp window (always active):** The server rejects any request whose `x-timestamp` falls outside the configured `ToleranceWindow` (default: 5 minutes).
 
-- Use Unix timestamp (seconds since epoch)
-- Synchronize system clocks
-- Check server's timestamp tolerance settings
+**Layer 2 — Signature replay cache (opt-in):** When the server option `EnableReplayProtection = true` is set, each validated signature is stored in `HybridCache`. A duplicate signature arriving within the same window is immediately rejected.
+
+> **Prerequisite:** `HybridCache` must be registered before calling `AddHmacAuthentication`:
+> ```csharp
+> builder.Services.AddHybridCache();
+> builder.Services.AddAuthentication().AddHmacAuthentication(o => o.EnableReplayProtection = true);
+> ```
+
+#### Nonce header — required for reliable Layer 2 protection
+
+The `x-timestamp` has only one-second resolution. Two identical requests sent within the same second (e.g. a rapid retry) produce the **same signature** and the second request would be falsely rejected as a replay.
+
+The `x-nonce` header solves this: a random GUID is generated per request and included in the signed material, making every signature unique regardless of timing.
+
+```text
+With nonce:
+String-To-Sign = "GET\n/api/users\napi.example.com;1640995200;47DEQp...;a3f1c2d4e5b64a7f8c9d0e1f2a3b4c5d"
+                                                                             ^-- unique per request
+```
+
+The .NET client always includes the `x-nonce` header in every request.
 
 ## Examples
 

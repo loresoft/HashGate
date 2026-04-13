@@ -18,6 +18,7 @@ import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * HMAC Authentication client for Java.
@@ -30,8 +31,9 @@ public class HmacClient {
     private static final String DEFAULT_SCHEME_NAME = "HMAC";
     private static final String TIME_STAMP_HEADER_NAME = "x-timestamp";
     private static final String CONTENT_HASH_HEADER_NAME = "x-content-sha256";
+    private static final String NONCE_HEADER_NAME = "x-nonce";
     private static final String EMPTY_CONTENT_HASH = "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=";
-    private static final List<String> DEFAULT_SIGNED_HEADERS = List.of("host", TIME_STAMP_HEADER_NAME, CONTENT_HASH_HEADER_NAME);
+    private static final List<String> DEFAULT_SIGNED_HEADERS = List.of("host", TIME_STAMP_HEADER_NAME, CONTENT_HASH_HEADER_NAME, NONCE_HEADER_NAME);
 
     private final String client;
     private final String secret;
@@ -153,8 +155,11 @@ public class HmacClient {
         // Calculate content hash
         String contentHash = calculateContentHash(content);
 
+        // Generate nonce (unique per-request value)
+        String nonce = UUID.randomUUID().toString();
+
         // Create header values in the order of DEFAULT_SIGNED_HEADERS
-        List<String> headerValues = List.of(host, timestamp, contentHash);
+        List<String> headerValues = List.of(host, timestamp, contentHash, nonce);
 
         // Create string to sign
         String stringToSign = createStringToSign(method, pathAndQuery, headerValues);
@@ -170,6 +175,7 @@ public class HmacClient {
         headers.put("Host", host);
         headers.put(TIME_STAMP_HEADER_NAME, timestamp);
         headers.put(CONTENT_HASH_HEADER_NAME, contentHash);
+        headers.put(NONCE_HEADER_NAME, nonce);
         headers.put("Authorization", authorizationHeader);
 
         if (content != null && !content.isEmpty()) {

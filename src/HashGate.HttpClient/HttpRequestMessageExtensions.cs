@@ -73,11 +73,12 @@ public static class HttpRequestMessageExtensions
         if (string.IsNullOrWhiteSpace(secret))
             throw new ArgumentException("Secret cannot be empty or whitespace.", nameof(secret));
 
-        // ensure required headers are present
-        if (signedHeaders == null)
-            signedHeaders = HmacAuthenticationShared.DefaultSignedHeaders;
-        else
-            signedHeaders = [.. HmacAuthenticationShared.DefaultSignedHeaders.Union(signedHeaders)];
+        // ensure required headers are present, dedup and sort case-insensitively
+        var headerSet = new SortedSet<string>(HmacAuthenticationShared.DefaultSignedHeaders, StringComparer.OrdinalIgnoreCase);
+        if (signedHeaders != null)
+            headerSet.UnionWith(signedHeaders);
+
+        signedHeaders = [.. headerSet];
 
         // add timestamp header
         var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
@@ -86,6 +87,9 @@ public static class HttpRequestMessageExtensions
         // compute content hash
         var contentHash = await GenerateContentHash(request);
         request.Headers.Add(HmacAuthenticationShared.ContentHashHeaderName, contentHash);
+
+        // generate nonce
+        request.Headers.Add(HmacAuthenticationShared.NonceHeaderName, Guid.NewGuid().ToString("N"));
 
         // get header values
         var headerValues = GetHeaderValues(request, signedHeaders);

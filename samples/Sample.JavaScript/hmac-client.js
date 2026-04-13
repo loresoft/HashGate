@@ -19,8 +19,9 @@ export class HmacClient {
         this.DEFAULT_SCHEME_NAME = 'HMAC';
         this.TIME_STAMP_HEADER_NAME = 'x-timestamp';
         this.CONTENT_HASH_HEADER_NAME = 'x-content-sha256';
+        this.NONCE_HEADER_NAME = 'x-nonce';
         this.EMPTY_CONTENT_HASH = '47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=';
-        this.DEFAULT_SIGNED_HEADERS = ['host', this.TIME_STAMP_HEADER_NAME, this.CONTENT_HASH_HEADER_NAME];
+        this.DEFAULT_SIGNED_HEADERS = ['host', this.TIME_STAMP_HEADER_NAME, this.CONTENT_HASH_HEADER_NAME, this.NONCE_HEADER_NAME];
     }
 
     /**
@@ -91,8 +92,11 @@ export class HmacClient {
         // Calculate content hash
         const contentHash = this.calculateContentHash(content);
 
+        // Generate nonce (unique per-request value)
+        const nonce = crypto.randomUUID();
+
         // Create header values in the order of DEFAULT_SIGNED_HEADERS
-        const headerValues = [host, timestamp, contentHash];
+        const headerValues = [host, timestamp, contentHash, nonce];
 
         // Create string to sign
         const stringToSign = this.createStringToSign(method, pathAndQuery, headerValues);
@@ -108,6 +112,7 @@ export class HmacClient {
             'Host': host,
             [this.TIME_STAMP_HEADER_NAME]: timestamp,
             [this.CONTENT_HASH_HEADER_NAME]: contentHash,
+            [this.NONCE_HEADER_NAME]: nonce,
             'Authorization': authorizationHeader
         };
 

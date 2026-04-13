@@ -38,5 +38,30 @@ public class HmacAuthenticationSchemeOptions : AuthenticationSchemeOptions
     /// The time span for caching claims. If <c>null</c>, claims are not cached.
     /// </value>
     public TimeSpan? CacheTime { get; set; }
+
+    /// <summary>
+    /// When <see langword="true"/>, each successfully validated HMAC signature is stored via
+    /// <see cref="IHmacReplayProtection"/> and subsequent requests presenting the same signature are
+    /// rejected — even if the timestamp is still within the <see cref="ToleranceWindow"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// When this option is enabled, <see cref="Microsoft.Extensions.Caching.Hybrid.HybridCache"/> must
+    /// be registered in the DI container before calling <c>AddHmacAuthentication</c>:
+    /// </para>
+    /// <code>
+    /// builder.Services.AddHybridCache();
+    /// builder.Services.AddAuthentication().AddHmacAuthentication(o => o.EnableReplayProtection = true);
+    /// </code>
+    /// <para>
+    /// The default <see cref="DefaultHmacReplayProtection"/> uses <see cref="Microsoft.Extensions.Caching.Hybrid.HybridCache"/>
+    /// (in-process L1) and is sufficient for single-server deployments. For multi-server environments,
+    /// also register a distributed cache (e.g. Redis); <see cref="Microsoft.Extensions.Caching.Hybrid.HybridCache"/>
+    /// will automatically promote it to the L2 backing store. Alternatively, provide a custom
+    /// <see cref="IHmacReplayProtection"/> implementation for full control.
+    /// </para>
+    /// <para>Default is <see langword="true"/>.</para>
+    /// </remarks>
+    public bool EnableReplayProtection { get; set; } = true;
 }
 
