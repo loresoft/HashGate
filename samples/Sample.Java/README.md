@@ -39,9 +39,8 @@ The API will be available at `https://localhost:7134`.
 Run the demonstration script to see the HMAC authentication in action:
 
 ```bash
-```
-
-This will test various endpoints including:
+mvn compile exec:java
+``` including:
 
 - Public endpoints (Hello World, Weather data)
 - Authenticated endpoints (Users, Addresses)
@@ -52,9 +51,8 @@ This will test various endpoints including:
 A simpler example showing basic usage:
 
 ```bash
+mvn compile exec:java -Dexec.mainClass=hashgate.sample.Example
 ```
-
-### Running Tests
 
 Run the unit test suite:
 
@@ -107,6 +105,7 @@ Each authenticated request includes:
 - `Host`: The target host
 - `x-timestamp`: Unix timestamp when request was created
 - `x-content-sha256`: SHA256 hash of request body (base64 encoded)
+- `x-nonce`: Unique per-request UUID for replay protection
 - `Authorization`: HMAC signature with client ID and signed headers
 
 ## Configuration

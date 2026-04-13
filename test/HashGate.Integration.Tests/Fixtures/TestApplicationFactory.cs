@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.Caching.Hybrid;
 
 namespace HashGate.Integration.Tests.Fixtures;
 
@@ -52,6 +53,8 @@ public sealed class TestApplicationFactory : IDisposable
 
     private static void ConfigureServices(IServiceCollection services)
     {
+        services.AddHybridCache();
+
         services
             .AddAuthentication()
             .AddHmacAuthentication();

@@ -229,6 +229,7 @@ public class RateLimitTests
                         }))
                     .ConfigureServices(services =>
                     {
+                        services.AddHybridCache();
                         services.AddAuthentication().AddHmacAuthentication();
                         // Generic overload registers RequestLimitProvider as IRequestLimitProvider.
                         // Options defaults (RPP=100, BF=1) are used for any client not in config.

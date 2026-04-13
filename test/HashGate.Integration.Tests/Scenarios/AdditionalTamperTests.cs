@@ -110,8 +110,8 @@ public class AdditionalTamperTests : IClassFixture<TestApplicationFactory>
     // 4. Non-default signed-header order → still 2xx
     // -----------------------------------------------------------------------
 
-    // Sign with header order ["x-timestamp", "host", "x-content-sha256"] instead of the
-    // default ["host", "x-timestamp", "x-content-sha256"].
+    // Sign with header order ["x-timestamp", "host", "x-content-sha256", "x-nonce"] instead of the
+    // default ["host", "x-timestamp", "x-content-sha256", "x-nonce"].
     //
     // The server uses the SignedHeaders order from the Authorization header
     // (HmacAuthenticationHandler.GetHeaderValues reads hmacHeader.SignedHeaders in order),
@@ -119,12 +119,13 @@ public class AdditionalTamperTests : IClassFixture<TestApplicationFactory>
     [Fact]
     public async Task Given_NonDefaultSignedHeaderOrder_When_ValidRequest_Then_Returns2xx()
     {
-        // Arrange — custom order: timestamp first, then host, then content-hash
+        // Arrange — custom order: timestamp first, then host, then content-hash, then nonce
         string[] customOrder =
         [
             HmacAuthenticationShared.TimeStampHeaderName,   // "x-timestamp"
             "host",
-            HmacAuthenticationShared.ContentHashHeaderName  // "x-content-sha256"
+            HmacAuthenticationShared.ContentHashHeaderName, // "x-content-sha256"
+            HmacAuthenticationShared.NonceHeaderName         // "x-nonce"
         ];
 
         var request = _builder.BuildSignedRequest(

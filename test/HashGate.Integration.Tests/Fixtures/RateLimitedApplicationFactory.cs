@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Caching.Hybrid;
+
 namespace HashGate.Integration.Tests.Fixtures;
 
 public sealed class RateLimitedApplicationFactory : IDisposable
@@ -46,6 +48,8 @@ public sealed class RateLimitedApplicationFactory : IDisposable
         int requestsPerPeriod,
         int burstFactor)
     {
+        services.AddHybridCache();
+
         services
             .AddAuthentication()
             .AddHmacAuthentication();

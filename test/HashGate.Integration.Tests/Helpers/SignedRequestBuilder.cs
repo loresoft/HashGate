@@ -1,8 +1,8 @@
 namespace HashGate.Integration.Tests.Helpers;
 
 // Builds signed HttpRequestMessage instances for integration tests.
-// The returned message has Authorization, x-timestamp, and x-content-sha256 headers
-// already set. Callers may tamper with headers or content after calling
+// The returned message has Authorization, x-timestamp, x-content-sha256, and x-nonce
+// headers already set. Callers may tamper with headers or content after calling
 // BuildSignedRequest to simulate MITM attacks.
 public sealed class SignedRequestBuilder
 {
@@ -46,31 +46,35 @@ public sealed class SignedRequestBuilder
             contentHash = HmacAuthenticationShared.EmptyContentHash;
         }
 
-        // --- 3. Signed header list ---
+        // --- 3. Nonce ---
+        var nonce = Guid.NewGuid().ToString("N");
+
+        // --- 4. Signed header list ---
         var headersToSign = signedHeaders ?? HmacAuthenticationShared.DefaultSignedHeaders;
 
-        // --- 4. Header values in signedHeaders order (must match server-side lookup) ---
-        var headerValues = BuildHeaderValues(headersToSign, _host, timestamp, contentHash, contentType);
+        // --- 5. Header values in signedHeaders order (must match server-side lookup) ---
+        var headerValues = BuildHeaderValues(headersToSign, _host, timestamp, contentHash, nonce, contentType);
 
-        // --- 5. String-to-sign: METHOD\npathAndQuery\nhdrVal1;hdrVal2;... ---
+        // --- 6. String-to-sign: METHOD\npathAndQuery\nhdrVal1;hdrVal2;... ---
         var stringToSign = HmacAuthenticationShared.CreateStringToSign(
             method.Method,
             pathAndQuery,
             headerValues);
 
-        // --- 6. HMAC-SHA256 signature ---
+        // --- 7. HMAC-SHA256 signature ---
         var signature = HmacAuthenticationShared.GenerateSignature(stringToSign, _secretKey);
 
-        // --- 7. Authorization header ---
+        // --- 8. Authorization header ---
         var authorization = HmacAuthenticationShared.GenerateAuthorizationHeader(
             _clientId, headersToSign, signature);
 
-        // --- 8. Assemble HttpRequestMessage ---
+        // --- 9. Assemble HttpRequestMessage ---
         var request = new HttpRequestMessage(method, pathAndQuery);
 
         request.Headers.TryAddWithoutValidation(HmacAuthenticationShared.AuthorizationHeaderName, authorization);
         request.Headers.TryAddWithoutValidation(HmacAuthenticationShared.TimeStampHeaderName, timestamp);
         request.Headers.TryAddWithoutValidation(HmacAuthenticationShared.ContentHashHeaderName, contentHash);
+        request.Headers.TryAddWithoutValidation(HmacAuthenticationShared.NonceHeaderName, nonce);
 
         if (bodyBytes != null)
         {
@@ -90,6 +94,7 @@ public sealed class SignedRequestBuilder
         string host,
         string timestamp,
         string contentHash,
+        string nonce,
         string? contentType)
     {
         var values = new string[headersToSign.Length];
@@ -104,6 +109,8 @@ public sealed class SignedRequestBuilder
                 values[i] = timestamp;
             else if (header == HmacAuthenticationShared.ContentHashHeaderName)
                 values[i] = contentHash;
+            else if (header == HmacAuthenticationShared.NonceHeaderName)
+                values[i] = nonce;
             else if (header.Equals(HmacAuthenticationShared.ContentTypeHeaderName, StringComparison.InvariantCultureIgnoreCase))
                 values[i] = contentType ?? string.Empty;
             else
