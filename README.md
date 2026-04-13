@@ -227,15 +227,15 @@ Semicolon-separated list of HTTP header names that were included in the signatur
 
 #### Required Headers
 
-The following headers must always be included:
+The following headers **must** always be included in `SignedHeaders`. The server enforces their presence and will reject requests that omit them:
 
 - `host`
-- `x-timestamp`
-- `x-content-sha256`
+- `x-timestamp` — required for replay protection; cryptographically binds the timestamp to the signature
+- `x-content-sha256` — required for body integrity; cryptographically binds the content hash to the signature
 
 #### Optional Headers
 
-You can include additional headers for enhanced security:
+You can include additional headers beyond the required set for enhanced security:
 
 ```text
 host;x-timestamp;x-content-sha256;content-type;accept
@@ -398,10 +398,29 @@ JavaScript/Node.js client implementation:
 - **Features**: Browser and Node.js compatible, TypeScript definitions
 - **Run**: `npm install && npm start`
 
+### Sample.Python
+
+Python client implementation:
+
+- **Location**: `samples/Sample.Python/`
+- **Features**: Easy-to-use client class, demo script, interactive testing tool, unit tests
+- **Requirements**: Python 3, dependencies in `requirements.txt`
+- **Run**: `pip install -r requirements.txt && python demo.py`
+
+### Sample.Java
+
+Java client implementation using the built-in `java.net.http.HttpClient`:
+
+- **Location**: `samples/Sample.Java/`
+- **Features**: HMAC client class, demo and example apps, unit tests, no external HTTP dependencies
+- **Requirements**: Java 25+, Maven 3.9+
+- **Run**: `mvn compile && mvn exec:java`
+
 ## Security Considerations
 
 - **Always use HTTPS** in production environments
 - **Protect HMAC secret keys** - never expose them in client-side code
+- **Always include required signed headers** - `x-timestamp` and `x-content-sha256` must be in `SignedHeaders` (the server enforces this)
 - **Monitor timestamp tolerance** - shorter windows provide better security
 - **Rotate keys regularly** - implement key rotation policies
 - **Log authentication failures** - monitor for potential attacks
