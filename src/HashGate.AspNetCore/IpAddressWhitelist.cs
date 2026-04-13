@@ -190,6 +190,12 @@ public static class IpAddressWhitelist
             var baseBytes = baseIp.GetAddressBytes();
             var remoteBytes = ipAddress.GetAddressBytes();
 
+            // Validate prefix length is within valid range for the address family.
+            // IPv4 addresses are 4 bytes (max 32), IPv6 addresses are 16 bytes (max 128).
+            int maxPrefixLength = baseBytes.Length * 8;
+            if (prefixLength < 0 || prefixLength > maxPrefixLength)
+                return false;
+
             // Ensure both IPs are of the same address family (IPv4/IPv6)
             if (baseBytes.Length != remoteBytes.Length)
                 return false;

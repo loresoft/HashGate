@@ -340,19 +340,32 @@ public static class HmacAuthenticationShared
         var leftBytes = Encoding.UTF8.GetBytes(left);
         var rightBytes = Encoding.UTF8.GetBytes(right);
 
-        // If lengths differ, return false immediately
-        if (leftBytes.Length != rightBytes.Length)
-            return false;
-
 #if NETSTANDARD2_0 || NETFRAMEWORK
-        // Manual constant-time comparison for .NET Standard 2.0
-        int result = 0;
-        for (int i = 0; i < leftBytes.Length; i++)
+        // Constant-time comparison that does not leak length information.
+        // XOR the lengths and accumulate into the result so a length mismatch
+        // does not cause an early return (which would be a timing side-channel).
+        int result = leftBytes.Length ^ rightBytes.Length;
+        int minLength = Math.Min(leftBytes.Length, rightBytes.Length);
+
+        for (int i = 0; i < minLength; i++)
             result |= leftBytes[i] ^ rightBytes[i];
 
         return result == 0;
 #else
-        // Use FixedTimeEquals for constant-time comparison
+        // CryptographicOperations.FixedTimeEquals already handles length
+        // differences in constant time by returning false without leaking
+        // which bytes differ, but it does reveal differing lengths via timing.
+        // For HMAC/SHA256 comparisons the outputs are always the same length,
+        // so this is acceptable. Guard with a length check that folds into
+        // the result to keep the public API safe for variable-length callers.
+        if (leftBytes.Length != rightBytes.Length)
+        {
+            // Compare left against itself so we still spend time proportional
+            // to the input length, then return false.
+            CryptographicOperations.FixedTimeEquals(leftBytes, leftBytes);
+            return false;
+        }
+
         return CryptographicOperations.FixedTimeEquals(leftBytes, rightBytes);
 #endif
     }

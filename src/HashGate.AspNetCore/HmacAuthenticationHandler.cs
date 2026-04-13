@@ -27,6 +27,7 @@ public partial class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthe
     private static readonly AuthenticateResult InvalidContentHashHeader = AuthenticateResult.Fail("Invalid content hash header");
     private static readonly AuthenticateResult InvalidClientName = AuthenticateResult.Fail("Invalid client name");
     private static readonly AuthenticateResult InvalidSignature = AuthenticateResult.Fail("Invalid signature");
+    private static readonly AuthenticateResult MissingRequiredSignedHeaders = AuthenticateResult.Fail("Missing required signed headers");
     private static readonly AuthenticateResult ReplayedSignature = AuthenticateResult.Fail("Replayed signature");
     private static readonly AuthenticateResult AuthenticationError = AuthenticateResult.Fail("Authentication error");
 
@@ -71,6 +72,15 @@ public partial class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthe
             {
                 LogInvalidAuthorizationHeader(Logger, result);
                 return AuthenticateResult.Fail($"Invalid Authorization header: {result}");
+            }
+
+            // Enforce that critical headers are always cryptographically bound to the signature.
+            // Without this, a custom client could omit x-timestamp or x-content-sha256 from SignedHeaders,
+            // weakening replay protection or allowing body substitution.
+            if (!ValidateRequiredSignedHeaders(hmacHeader.SignedHeaders))
+            {
+                LogMissingRequiredSignedHeaders(Logger);
+                return MissingRequiredSignedHeaders;
             }
 
             if (!ValidateTimestamp(out var requestTime))
@@ -196,7 +206,11 @@ public partial class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthe
     {
         Request.EnableBuffering();
 
-        if (Request.ContentLength == 0 || Request.Body == Stream.Null)
+        // Do not trust the Content-Length header to determine whether a body exists.
+        // A malicious client or proxy could send Content-Length: 0 with an actual body,
+        // causing us to return the empty hash while the application later reads real content.
+        // Instead, only short-circuit for Stream.Null (no body stream at all).
+        if (Request.Body == Stream.Null)
             return HmacAuthenticationShared.EmptyContentHash;
 
         using var sha = SHA256.Create();
@@ -268,6 +282,22 @@ public partial class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthe
         return null;
     }
 
+    private static bool ValidateRequiredSignedHeaders(IReadOnlyList<string> signedHeaders)
+    {
+        bool hasTimestamp = false;
+        bool hasContentHash = false;
+
+        for (int i = 0; i < signedHeaders.Count; i++)
+        {
+            if (signedHeaders[i].Equals(HmacAuthenticationShared.TimeStampHeaderName, StringComparison.OrdinalIgnoreCase))
+                hasTimestamp = true;
+            else if (signedHeaders[i].Equals(HmacAuthenticationShared.ContentHashHeaderName, StringComparison.OrdinalIgnoreCase))
+                hasContentHash = true;
+        }
+
+        return hasTimestamp && hasContentHash;
+    }
+
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Invalid Authorization header: {HeaderError}")]
     private static partial void LogInvalidAuthorizationHeader(ILogger logger, HmacHeaderError headerError);
@@ -283,6 +313,9 @@ public partial class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthe
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Invalid signature for client: {Client}")]
     private static partial void LogInvalidSignature(ILogger logger, string client);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Missing required signed headers: x-timestamp and x-content-sha256 must be included in SignedHeaders")]
+    private static partial void LogMissingRequiredSignedHeaders(ILogger logger);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Replayed signature detected for client: {Client}")]
     private static partial void LogReplayedSignature(ILogger logger, string client);
