@@ -398,6 +398,24 @@ JavaScript/Node.js client implementation:
 - **Features**: Browser and Node.js compatible, TypeScript definitions
 - **Run**: `npm install && npm start`
 
+### Sample.Python
+
+Python client implementation:
+
+- **Location**: `samples/Sample.Python/`
+- **Features**: Easy-to-use client class, demo script, interactive testing tool, unit tests
+- **Requirements**: Python 3, dependencies in `requirements.txt`
+- **Run**: `pip install -r requirements.txt && python demo.py`
+
+### Sample.Java
+
+Java client implementation using the built-in `java.net.http.HttpClient`:
+
+- **Location**: `samples/Sample.Java/`
+- **Features**: HMAC client class, demo and example apps, unit tests, no external HTTP dependencies
+- **Requirements**: Java 25+, Maven 3.9+
+- **Run**: `mvn compile && mvn exec:java`
+
 ## Security Considerations
 
 - **Always use HTTPS** in production environments
