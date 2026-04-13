@@ -191,7 +191,7 @@ Every authenticated request must include these headers:
 | **Host**             | Internet host and port number                                                                                      |
 | **x-timestamp**      | Unix timestamp (seconds since epoch) when the request was created. Must be within 5 minutes of current server time |
 | **x-content-sha256** | Base64-encoded SHA256 hash of the request body. Required even for requests with empty bodies                       |
-| **x-nonce**          | Optional unique per-request value (GUID). Required when the server has `EnableReplayProtection` enabled            |
+| **x-nonce**          | Optional unique per-request value (GUID). Recommended when replay protection is enabled (the default)              |
 | **Authorization**    | HMAC authentication information (see format details below)                                                         |
 
 ### Example Request
@@ -305,17 +305,17 @@ HashGate provides two layers of replay protection:
 
 **Layer 1 — Timestamp window (always active):** The server rejects any request whose `x-timestamp` falls outside `ToleranceWindow` minutes of server time (default: 5 minutes).
 
-**Layer 2 — Signature replay cache (opt-in):** Enable `EnableReplayProtection` on the server to record each validated signature. If the same signature arrives again within its validity window, it is immediately rejected — even within the same second.
+**Layer 2 — Signature replay cache (enabled by default):** `EnableReplayProtection` is `true` by default. The server records each validated signature and immediately rejects any duplicate that arrives within its validity window — even within the same second. To opt out, set `EnableReplayProtection = false`.
 
 ```csharp
-// Server — register HybridCache, then enable signature replay protection
+// Server — register HybridCache for the replay protection cache
 builder.Services.AddHybridCache();
 builder.Services
     .AddAuthentication()
-    .AddHmacAuthentication(options =>
-    {
-        options.EnableReplayProtection = true;
-    });
+    .AddHmacAuthentication();
+
+// To disable replay protection:
+// .AddHmacAuthentication(options => options.EnableReplayProtection = false);
 ```
 
 > **Important — nonce:** The timestamp has only one-second resolution, so two identical requests sent within the same second produce the same signature and the second would be falsely rejected. Every request automatically includes a unique `x-nonce` header, making each signature cryptographically unique.
@@ -339,7 +339,7 @@ builder.Services.AddStackExchangeRedisCache(options =>
 builder.Services.AddHybridCache();
 builder.Services
     .AddAuthentication()
-    .AddHmacAuthentication(options => options.EnableReplayProtection = true);
+    .AddHmacAuthentication();
 ```
 
 ### Client Configuration
@@ -506,6 +506,50 @@ Contributions are welcome! Please feel free to submit a Pull Request. For major 
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Migration Guide: v2.x → v3.x
+
+### Migration Overview
+
+Version 3 introduces **nonce support** to guarantee per-request signature uniqueness. The `x-nonce` header is now included in the default signed headers.
+
+> **Note:** The `x-nonce` header is **not required** by the server. However, without it, two identical requests sent within the same second produce the same signature. Because `EnableReplayProtection` is enabled by default, the second request will be rejected with a **401 Unauthorized** response because the signature was already recorded. Including `x-nonce` is strongly recommended to avoid this.
+
+### What Changed
+
+| Area                       | v2.x                                                              | v3.x                                                                              |
+| -------------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| **Default signed headers** | `host;x-timestamp;x-content-sha256`                               | `host;x-timestamp;x-content-sha256;x-nonce`                                       |
+| **`x-nonce` header**       | Not present                                                       | Optional but included by default; automatically generated (GUID) on every request |
+| **Replay protection**      | Identical requests in the same second produced the same signature | Each request has a cryptographically unique signature via nonce                   |
+
+### .NET Client (`HashGate.HttpClient`)
+
+If you are using the **default signed headers**, no code changes are required. The client automatically generates and includes `x-nonce` on every request.
+
+If you have **custom `SignedHeaders`** configured, add `x-nonce` to the list:
+
+```diff
+ services.AddHmacAuthentication(options =>
+ {
+     options.Client = "MyClientId";
+     options.Secret = "my-secret-key";
+-    options.SignedHeaders = ["host", "x-timestamp", "x-content-sha256", "content-type"];
++    options.SignedHeaders = ["host", "x-timestamp", "x-content-sha256", "x-nonce", "content-type"];
+ });
+```
+
+### .NET Server (`HashGate.AspNetCore`)
+
+Update the NuGet package to v3.x. The server automatically recognizes `x-nonce` in the `SignedHeaders` list. No configuration changes are needed unless you have custom header validation logic.
+
+### Non-.NET Clients
+
+All non-.NET clients should be updated to include `x-nonce`. While the server does not require it, omitting the nonce means identical requests within the same second will share the same signature and be rejected with **401** because `EnableReplayProtection` is enabled by default.
+
+1. **Generate a unique nonce** (GUID/UUID) for each request
+2. **Set the `x-nonce` header** on the request
+3. **Add `x-nonce` to the `SignedHeaders` list** in the `Authorization` header so the nonce value is included in the string-to-sign and the resulting signature
 
 ## References
 

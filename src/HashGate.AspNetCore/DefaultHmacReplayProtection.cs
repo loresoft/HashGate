@@ -40,7 +40,7 @@ internal sealed class DefaultHmacReplayProtection : IHmacReplayProtection
         // Factory runs  → signature is new  → allow.
         // Factory skipped (cache hit) → signature was seen before → replay.
         await _cache.GetOrCreateAsync(
-            key: signature,
+            key: $"HashGate:Signature:{signature}",
             factory: _ => { isNew = true; return ValueTask.FromResult(true); },
             options: new HybridCacheEntryOptions { Expiration = ttl },
             cancellationToken: cancellationToken
