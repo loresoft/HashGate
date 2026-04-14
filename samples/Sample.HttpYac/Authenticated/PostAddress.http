@@ -1,0 +1,18 @@
+POST /addresses
+Authorization: HMAC client:{{tokenId}} secret:{{tokenSecret}}
+Content-Type: application/json
+
+{
+    "line1": "{{$randomInt 100 200}} Main St",
+    "line2": "Apt {{$randomInt 1 50}}",
+    "city": "New York",
+    "state": "NY",
+    "zipCode": "10001"    
+}
+
+HTTP/1.1 200  - OK
+connection: close
+content-type: application/json; charset=utf-8
+date: Mon, 13 Apr 2026 21:32:44 GMT
+server: Kestrel
+transfer-encoding: chunked

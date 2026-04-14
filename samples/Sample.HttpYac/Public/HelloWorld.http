@@ -1,0 +1,9 @@
+GET /
+Content-Type: application/json
+
+HTTP/1.1 200  - OK
+connection: close
+content-type: text/plain; charset=utf-8
+date: Mon, 13 Apr 2026 21:37:25 GMT
+server: Kestrel
+transfer-encoding: chunked

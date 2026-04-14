@@ -1,0 +1,15 @@
+POST /weather
+Content-Type: application/json
+
+{
+    "date": "2025-08-05",
+    "temperatureC": 25,
+    "summary": "Sunny"
+  }
+
+HTTP/1.1 200  - OK
+connection: close
+content-type: application/json; charset=utf-8
+date: Mon, 13 Apr 2026 21:38:22 GMT
+server: Kestrel
+transfer-encoding: chunked
