@@ -46,22 +46,21 @@ public class HmacAuthenticationSchemeOptions : AuthenticationSchemeOptions
     /// </summary>
     /// <remarks>
     /// <para>
-    /// When this option is enabled, <see cref="Microsoft.Extensions.Caching.Hybrid.HybridCache"/> must
-    /// be registered in the DI container before calling <c>AddHmacAuthentication</c>:
-    /// </para>
-    /// <code>
-    /// builder.Services.AddHybridCache();
-    /// builder.Services.AddAuthentication().AddHmacAuthentication(o => o.EnableReplayProtection = true);
-    /// </code>
-    /// <para>
-    /// The default <see cref="DefaultHmacReplayProtection"/> uses <see cref="Microsoft.Extensions.Caching.Hybrid.HybridCache"/>
-    /// (in-process L1) and is sufficient for single-server deployments. For multi-server environments,
-    /// also register a distributed cache (e.g. Redis); <see cref="Microsoft.Extensions.Caching.Hybrid.HybridCache"/>
-    /// will automatically promote it to the L2 backing store. Alternatively, provide a custom
+    /// <see cref="Microsoft.Extensions.Caching.Hybrid.HybridCache"/> is registered automatically by
+    /// <c>AddHmacAuthentication</c>. For multi-server environments, also register a distributed cache
+    /// (e.g. Redis); <see cref="Microsoft.Extensions.Caching.Hybrid.HybridCache"/> will automatically
+    /// promote it to the L2 backing store. Alternatively, provide a custom
     /// <see cref="IHmacReplayProtection"/> implementation for full control.
     /// </para>
     /// <para>Default is <see langword="true"/>.</para>
     /// </remarks>
     public bool EnableReplayProtection { get; set; } = true;
+
+    /// <summary>
+    /// Maximum number of headers allowed in the <c>SignedHeaders</c> parameter.
+    /// Requests exceeding this limit are rejected to prevent amplification attacks.
+    /// </summary>
+    /// <remarks>Default is 20.</remarks>
+    public int MaxSignedHeaders { get; set; } = 20;
 }
 

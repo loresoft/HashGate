@@ -308,8 +308,7 @@ HashGate provides two layers of replay protection:
 **Layer 2 — Signature replay cache (enabled by default):** `EnableReplayProtection` is `true` by default. The server records each validated signature and immediately rejects any duplicate that arrives within its validity window — even within the same second. To opt out, set `EnableReplayProtection = false`.
 
 ```csharp
-// Server — register HybridCache for the replay protection cache
-builder.Services.AddHybridCache();
+// Server — replay protection is enabled by default
 builder.Services
     .AddAuthentication()
     .AddHmacAuthentication();
@@ -336,7 +335,6 @@ services.AddHmacAuthentication(options =>
 builder.Services.AddStackExchangeRedisCache(options =>
     options.Configuration = builder.Configuration.GetConnectionString("Redis"));
 
-builder.Services.AddHybridCache();
 builder.Services
     .AddAuthentication()
     .AddHmacAuthentication();

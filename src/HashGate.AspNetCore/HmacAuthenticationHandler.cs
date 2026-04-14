@@ -28,6 +28,7 @@ public partial class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthe
     private static readonly AuthenticateResult InvalidClientName = AuthenticateResult.Fail("Invalid client name");
     private static readonly AuthenticateResult InvalidSignature = AuthenticateResult.Fail("Invalid signature");
     private static readonly AuthenticateResult MissingRequiredSignedHeaders = AuthenticateResult.Fail("Missing required signed headers");
+    private static readonly AuthenticateResult TooManySignedHeaders = AuthenticateResult.Fail("Too many signed headers");
     private static readonly AuthenticateResult ReplayedSignature = AuthenticateResult.Fail("Replayed signature");
     private static readonly AuthenticateResult AuthenticationError = AuthenticateResult.Fail("Authentication error");
 
@@ -74,9 +75,16 @@ public partial class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthe
                 return AuthenticateResult.Fail($"Invalid Authorization header: {result}");
             }
 
+            // Reject requests with an excessive number of signed headers to prevent amplification.
+            if (hmacHeader.SignedHeaders.Count > Options.MaxSignedHeaders)
+            {
+                LogTooManySignedHeaders(Logger, hmacHeader.SignedHeaders.Count, Options.MaxSignedHeaders);
+                return TooManySignedHeaders;
+            }
+
             // Enforce that critical headers are always cryptographically bound to the signature.
-            // Without this, a custom client could omit x-timestamp or x-content-sha256 from SignedHeaders,
-            // weakening replay protection or allowing body substitution.
+            // Without this, a custom client could omit host, x-timestamp, or x-content-sha256 from SignedHeaders,
+            // weakening replay protection or allowing body/host substitution.
             if (!ValidateRequiredSignedHeaders(hmacHeader.SignedHeaders))
             {
                 LogMissingRequiredSignedHeaders(Logger);
@@ -90,19 +98,13 @@ public partial class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthe
                 return InvalidTimestampHeader;
             }
 
-            if (!await ValidateContentHash())
-            {
-                // Ensure the request body hash matches what the client signed.
-                LogInvalidContentHash(Logger);
-                return InvalidContentHashHeader;
-            }
-
             // Resolve keyed provider when configured; otherwise use the default registration.
             var keyProvider = string.IsNullOrEmpty(Options.ProviderServiceKey)
                 ? Context.RequestServices.GetRequiredService<IHmacKeyProvider>()
                 : Context.RequestServices.GetRequiredKeyedService<IHmacKeyProvider>(Options.ProviderServiceKey);
 
             // Retrieve the client secret for the given client ID to verify the signature.
+            // Done before body hashing so unknown clients are rejected cheaply without reading the body.
             var clientSecret = await keyProvider
                 .GetSecretAsync(hmacHeader.Client, Context.RequestAborted)
                 .ConfigureAwait(false);
@@ -112,6 +114,13 @@ public partial class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthe
                 // Unknown client IDs are treated as authentication failures.
                 LogInvalidClientName(Logger, hmacHeader.Client);
                 return InvalidClientName;
+            }
+
+            if (!await ValidateContentHash())
+            {
+                // Ensure the request body hash matches what the client signed.
+                LogInvalidContentHash(Logger);
+                return InvalidContentHashHeader;
             }
 
             var headerValues = GetHeaderValues(hmacHeader.SignedHeaders);
@@ -284,18 +293,21 @@ public partial class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthe
 
     private static bool ValidateRequiredSignedHeaders(IReadOnlyList<string> signedHeaders)
     {
+        bool hasHost = false;
         bool hasTimestamp = false;
         bool hasContentHash = false;
 
         for (int i = 0; i < signedHeaders.Count; i++)
         {
-            if (signedHeaders[i].Equals(HmacAuthenticationShared.TimeStampHeaderName, StringComparison.OrdinalIgnoreCase))
+            if (signedHeaders[i].Equals(HmacAuthenticationShared.HostHeaderName, StringComparison.OrdinalIgnoreCase))
+                hasHost = true;
+            else if (signedHeaders[i].Equals(HmacAuthenticationShared.TimeStampHeaderName, StringComparison.OrdinalIgnoreCase))
                 hasTimestamp = true;
             else if (signedHeaders[i].Equals(HmacAuthenticationShared.ContentHashHeaderName, StringComparison.OrdinalIgnoreCase))
                 hasContentHash = true;
         }
 
-        return hasTimestamp && hasContentHash;
+        return hasHost && hasTimestamp && hasContentHash;
     }
 
 
@@ -314,8 +326,11 @@ public partial class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthe
     [LoggerMessage(Level = LogLevel.Warning, Message = "Invalid signature for client: {Client}")]
     private static partial void LogInvalidSignature(ILogger logger, string client);
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Missing required signed headers: x-timestamp and x-content-sha256 must be included in SignedHeaders")]
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Missing required signed headers: host, x-timestamp, and x-content-sha256 must be included in SignedHeaders")]
     private static partial void LogMissingRequiredSignedHeaders(ILogger logger);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Too many signed headers: {Count} exceeds maximum of {Max}")]
+    private static partial void LogTooManySignedHeaders(ILogger logger, int count, int max);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Replayed signature detected for client: {Client}")]
     private static partial void LogReplayedSignature(ILogger logger, string client);

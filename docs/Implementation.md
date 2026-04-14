@@ -700,13 +700,7 @@ HashGate provides two layers of replay protection:
 
 **Layer 1 — Timestamp window (always active):** The server rejects any request whose `x-timestamp` falls outside the configured `ToleranceWindow` (default: 5 minutes).
 
-**Layer 2 — Signature replay cache (opt-in):** When the server option `EnableReplayProtection = true` is set, each validated signature is stored in `HybridCache`. A duplicate signature arriving within the same window is immediately rejected.
-
-> **Prerequisite:** `HybridCache` must be registered before calling `AddHmacAuthentication`:
-> ```csharp
-> builder.Services.AddHybridCache();
-> builder.Services.AddAuthentication().AddHmacAuthentication(o => o.EnableReplayProtection = true);
-> ```
+**Layer 2 — Signature replay cache (enabled by default):** `EnableReplayProtection` is `true` by default. Each validated signature is stored in `HybridCache`. A duplicate signature arriving within the same window is immediately rejected. `HybridCache` is registered automatically by `AddHmacAuthentication`. For multi-server environments, also register a distributed cache (e.g. Redis) to extend `HybridCache` with an L2 backing store.
 
 #### Nonce header — required for reliable Layer 2 protection
 
