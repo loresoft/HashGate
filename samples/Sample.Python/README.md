@@ -122,6 +122,7 @@ Each authenticated request includes:
 - `Host`: The target host
 - `x-timestamp`: Unix timestamp when request was created
 - `x-content-sha256`: SHA256 hash of request body (base64 encoded)
+- `x-nonce`: Unique per-request UUID for replay protection
 - `Authorization`: HMAC signature with client ID and signed headers
 
 ## Configuration

@@ -40,7 +40,9 @@ Run the demonstration script to see the HMAC authentication in action:
 
 ```bash
 mvn compile exec:java
-``` including:
+```
+
+This will test various endpoints including:
 
 - Public endpoints (Hello World, Weather data)
 - Authenticated endpoints (Users, Addresses)

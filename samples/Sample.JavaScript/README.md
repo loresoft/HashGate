@@ -136,6 +136,7 @@ By default, the following headers are included in the signature:
 - `host` - The target host
 - `x-timestamp` - ISO 8601 timestamp of the request
 - `x-content-sha256` - SHA256 hash of the request body (base64 encoded)
+- `x-nonce` - Unique per-request value for replay protection
 
 ### Authorization Header Format
 
@@ -146,7 +147,7 @@ HMAC Client={clientId}&SignedHeaders={signedHeaders}&Signature={signature}
 Example:
 
 ```text
-HMAC Client=SampleClient&SignedHeaders=host;x-timestamp;x-content-sha256&Signature=abc123...
+HMAC Client=SampleClient&SignedHeaders=host;x-timestamp;x-content-sha256;x-nonce&Signature=abc123...
 ```
 
 ## Code Structure

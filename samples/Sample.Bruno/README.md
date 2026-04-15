@@ -110,21 +110,25 @@ if (typeof body === 'object') {
 }
 const contentHash = CryptoJS.SHA256(body).toString(CryptoJS.enc.Base64);
 
+// Generate nonce (unique per-request value)
+const nonce = crypto.randomUUID ? crypto.randomUUID() : CryptoJS.lib.WordArray.random(16).toString();
+
 // Create signed headers and string to sign
-const headerValues = `${host};${timestamp};${contentHash}`;
+const headerValues = `${host};${timestamp};${contentHash};${nonce}`;
 const stringToSign = `${method}\n${pathAndQuery}\n${headerValues}`;
 
 // Generate signature
 const signature = CryptoJS.HmacSHA256(stringToSign, secret).toString(CryptoJS.enc.Base64);
 
 // Construct Authorization header
-const signedHeader = 'host;x-timestamp;x-content-sha256';
+const signedHeader = 'host;x-timestamp;x-content-sha256;x-nonce';
 const authorization = `HMAC Client=${client}&SignedHeaders=${signedHeader}&Signature=${signature}`;
 
 // Set headers
 req.setHeader('Host', host);
 req.setHeader('x-timestamp', timestamp);
 req.setHeader('x-content-sha256', contentHash);
+req.setHeader('x-nonce', nonce);
 req.setHeader('Authorization', authorization);
 
 // Set formatted body
@@ -137,7 +141,8 @@ req.setBody(body);
 2. **Request Analysis**: Extracts method, URL components, and body
 3. **Timestamp Generation**: Creates Unix timestamp for replay protection
 4. **Content Hashing**: Generates SHA256 hash of request body
-5. **String Construction**: Builds canonical string for signing
+5. **Nonce Generation**: Creates unique per-request value for replay protection
+6. **String Construction**: Builds canonical string for signing
 6. **HMAC Signature**: Creates HMAC-SHA256 signature using secret
 7. **Header Injection**: Automatically adds all required authentication headers
 
