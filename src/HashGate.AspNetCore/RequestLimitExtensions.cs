@@ -1,4 +1,5 @@
 using System.Threading.RateLimiting;
+using System.Diagnostics;
 
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -144,6 +145,11 @@ public static class RequestLimitExtensions
 
         var retrySeconds = Math.Max(1, (int)Math.Ceiling(retryAfter.TotalSeconds));
 
+        Activity.Current?.SetTag(HashGateDiagnostics.RateLimitRejectedTagName, true);
+        Activity.Current?.SetTag(HashGateDiagnostics.RateLimitPolicyTagName, policyName);
+        Activity.Current?.SetTag(HashGateDiagnostics.RateLimitRetryAfterMillisecondsTagName, retryAfter.TotalMilliseconds);
+        HashGateDiagnostics.RecordRateLimitRejection(policyName, retryAfter.TotalMilliseconds);
+
         httpContext.Response.Headers.RetryAfter = retrySeconds.ToString();
         httpContext.Response.Headers["X-RateLimit-Reset"] = DateTimeOffset.UtcNow.AddSeconds(retrySeconds).ToUnixTimeSeconds().ToString();
 
@@ -164,10 +170,13 @@ public static class RequestLimitExtensions
         // Authenticated requests are bucketed by HMAC client ID + endpoint;
         // unauthenticated requests fall back to remote IP so they don't share a client's quota.
         var parseResult = HmacHeaderParser.TryParse(authorizationHeader, true, out var hmacHeader);
+
         var client = parseResult == HmacHeaderError.None
             ? hmacHeader.Client
             : httpContext.Connection.RemoteIpAddress?.ToString()
             ?? "unknown";
+
+        var partitionSource = parseResult == HmacHeaderError.None ? "hmac_client" : "remote_ip";
 
         // EndpointSelector defaults to the endpoint display name, falling back to request path.
         var endpoint = opts.EndpointSelector(httpContext).ToLowerInvariant();
@@ -181,8 +190,20 @@ public static class RequestLimitExtensions
         // default to options if provider doesn't exist
         // ASP.NET Core's partition callback is synchronous; GetAwaiter().GetResult() is safe here
         // because ASP.NET Core has no SynchronizationContext.
-        var limit = provider?.GetAsync(client, httpContext.RequestAborted).GetAwaiter().GetResult()
-            ?? new RequestLimit(opts.RequestsPerPeriod, opts.BurstFactor);
+        var configuredLimit = provider?.GetAsync(client, httpContext.RequestAborted).GetAwaiter().GetResult();
+
+        var hasConfiguredLimit = configuredLimit.HasValue;
+        var limit = configuredLimit ?? new RequestLimit(opts.RequestsPerPeriod, opts.BurstFactor);
+
+        Activity.Current?.SetTag(HashGateDiagnostics.RateLimitPolicyTagName, policy);
+        Activity.Current?.SetTag(HashGateDiagnostics.RateLimitClientTagName, client);
+        Activity.Current?.SetTag(HashGateDiagnostics.RateLimitEndpointTagName, endpoint);
+        Activity.Current?.SetTag(HashGateDiagnostics.RateLimitRequestsPerPeriodTagName, limit.RequestsPerPeriod);
+        Activity.Current?.SetTag(HashGateDiagnostics.RateLimitBurstFactorTagName, limit.BurstFactor);
+        Activity.Current?.SetTag(HashGateDiagnostics.RateLimitPartitionSourceTagName, partitionSource);
+
+        HashGateDiagnostics.RecordEndpointRequest(policy, endpoint, client);
+        HashGateDiagnostics.RecordRateLimitProviderLookup(policy, hasConfiguredLimit);
 
         // Include a content-derived version so that limit changes in configuration
         // cause new partition keys — and thus fresh token buckets — rather than

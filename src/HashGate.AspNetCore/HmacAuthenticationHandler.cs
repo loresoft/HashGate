@@ -1,9 +1,9 @@
 // Ignore Spelling: timestamp Hmac
 
+using System.Diagnostics;
 using System.Globalization;
 using System.Security.Claims;
 using System.Security.Cryptography;
-using System.Text;
 using System.Text.Encodings.Web;
 
 using Microsoft.AspNetCore.Authentication;
@@ -53,6 +53,9 @@ public partial class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthe
     /// </returns>
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
+        var startTimestamp = 0L;
+        Activity? activity = null;
+
         try
         {
             var authorizationHeader = Request.Headers.Authorization.ToString();
@@ -68,18 +71,27 @@ public partial class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthe
             if (result == HmacHeaderError.InvalidSchema)
                 return AuthenticateResult.NoResult();
 
+            startTimestamp = Stopwatch.GetTimestamp();
+            activity = HashGateDiagnostics.ActivitySource.StartActivity("HashGate.Authenticate", ActivityKind.Internal);
+
+            activity?.SetTag(HashGateDiagnostics.AuthenticationSchemeTagName, Scheme.Name);
+            activity?.SetTag(HashGateDiagnostics.ReplayProtectionEnabledTagName, Options.EnableReplayProtection);
+
             // invalid HMAC Authorization header format
             if (result != HmacHeaderError.None)
             {
                 LogInvalidAuthorizationHeader(Logger, result);
-                return AuthenticateResult.Fail($"Invalid Authorization header: {result}");
+                return CompleteAuthentication(activity, AuthenticateResult.Fail($"Invalid Authorization header: {result}"), startTimestamp, "failure", result.ToString());
             }
+
+            activity?.SetTag(HashGateDiagnostics.HmacClientTagName, hmacHeader.Client);
+            activity?.SetTag(HashGateDiagnostics.HmacSignedHeadersCountTagName, hmacHeader.SignedHeaders.Count);
 
             // Reject requests with an excessive number of signed headers to prevent amplification.
             if (hmacHeader.SignedHeaders.Count > Options.MaxSignedHeaders)
             {
                 LogTooManySignedHeaders(Logger, hmacHeader.SignedHeaders.Count, Options.MaxSignedHeaders);
-                return TooManySignedHeaders;
+                return CompleteAuthentication(activity, TooManySignedHeaders, startTimestamp, "failure", "too_many_signed_headers");
             }
 
             // Enforce that critical headers are always cryptographically bound to the signature.
@@ -88,14 +100,14 @@ public partial class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthe
             if (!ValidateRequiredSignedHeaders(hmacHeader.SignedHeaders))
             {
                 LogMissingRequiredSignedHeaders(Logger);
-                return MissingRequiredSignedHeaders;
+                return CompleteAuthentication(activity, MissingRequiredSignedHeaders, startTimestamp, "failure", "missing_required_signed_headers");
             }
 
             if (!ValidateTimestamp(out var requestTime))
             {
                 // Reject stale/future requests outside the allowed replay-protection window.
                 LogInvalidTimestamp(Logger, requestTime);
-                return InvalidTimestampHeader;
+                return CompleteAuthentication(activity, InvalidTimestampHeader, startTimestamp, "failure", "invalid_timestamp");
             }
 
             // Resolve keyed provider when configured; otherwise use the default registration.
@@ -113,15 +125,18 @@ public partial class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthe
             {
                 // Unknown client IDs are treated as authentication failures.
                 LogInvalidClientName(Logger, hmacHeader.Client);
-                return InvalidClientName;
+                return CompleteAuthentication(activity, InvalidClientName, startTimestamp, "failure", "invalid_client");
             }
 
             if (!await ValidateContentHash())
             {
                 // Ensure the request body hash matches what the client signed.
                 LogInvalidContentHash(Logger);
-                return InvalidContentHashHeader;
+                activity?.AddEvent(new ActivityEvent("hashgate.content_hash.failed"));
+                return CompleteAuthentication(activity, InvalidContentHashHeader, startTimestamp, "failure", "invalid_content_hash");
             }
+
+            activity?.AddEvent(new ActivityEvent("hashgate.content_hash.validated"));
 
             var headerValues = GetHeaderValues(hmacHeader.SignedHeaders);
 
@@ -137,7 +152,7 @@ public partial class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthe
             {
                 // Use constant-time comparison to avoid timing side-channel leakage.
                 LogInvalidSignature(Logger, hmacHeader.Client);
-                return InvalidSignature;
+                return CompleteAuthentication(activity, InvalidSignature, startTimestamp, "failure", "invalid_signature");
             }
 
             if (Options.EnableReplayProtection)
@@ -154,8 +169,15 @@ public partial class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthe
                     if (!isNew)
                     {
                         LogReplayedSignature(Logger, hmacHeader.Client);
-                        return ReplayedSignature;
+                        activity?.SetTag(HashGateDiagnostics.ReplayProtectionResultTagName, "replay");
+                        return CompleteAuthentication(activity, ReplayedSignature, startTimestamp, "failure", "replayed_signature");
                     }
+
+                    activity?.SetTag(HashGateDiagnostics.ReplayProtectionResultTagName, "new");
+                }
+                else
+                {
+                    activity?.SetTag(HashGateDiagnostics.ReplayProtectionResultTagName, "not_configured");
                 }
             }
 
@@ -168,13 +190,45 @@ public partial class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthe
             var ticket = new AuthenticationTicket(principal, Scheme.Name);
 
             // Return a successful authentication ticket so authorization can evaluate policies.
-            return AuthenticateResult.Success(ticket);
+            return CompleteAuthentication(activity, AuthenticateResult.Success(ticket), startTimestamp, "success");
+        }
+        catch (OperationCanceledException) when (Context.RequestAborted.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception ex)
         {
             LogAuthenticationError(Logger, ex, ex.Message);
-            return AuthenticationError;
+
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+            activity?.AddException(ex);
+
+            return CompleteAuthentication(activity, AuthenticationError, startTimestamp, "failure", "authentication_error");
         }
+        finally
+        {
+            activity?.Dispose();
+        }
+    }
+
+    private AuthenticateResult CompleteAuthentication(
+        Activity? activity,
+        AuthenticateResult result,
+        long startTimestamp,
+        string outcome,
+        string? failureReason = null)
+    {
+        activity?.SetTag(HashGateDiagnostics.AuthenticationResultTagName, outcome);
+
+        if (failureReason is not null)
+        {
+            activity?.SetTag(HashGateDiagnostics.AuthenticationFailureReasonTagName, failureReason);
+            activity?.SetStatus(ActivityStatusCode.Error, failureReason);
+        }
+
+        HashGateDiagnostics.RecordAuthentication(Scheme.Name, outcome, failureReason, startTimestamp);
+
+        return result;
     }
 
 
@@ -256,7 +310,7 @@ public partial class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthe
 
     private string? GetHeaderValue(string headerName)
     {
-        if (headerName.Equals(HmacAuthenticationShared.HostHeaderName, StringComparison.OrdinalIgnoreCase ))
+        if (headerName.Equals(HmacAuthenticationShared.HostHeaderName, StringComparison.OrdinalIgnoreCase))
         {
             if (Request.Headers.TryGetValue(HmacAuthenticationShared.HostHeaderName, out var hostValue))
                 return hostValue.ToString();
@@ -265,8 +319,8 @@ public partial class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthe
         }
 
         // Handle date headers specifically
-        if (headerName.Equals(HmacAuthenticationShared.DateHeaderName, StringComparison.OrdinalIgnoreCase )
-            || headerName.Equals(HmacAuthenticationShared.DateOverrideHeaderName, StringComparison.OrdinalIgnoreCase ))
+        if (headerName.Equals(HmacAuthenticationShared.DateHeaderName, StringComparison.OrdinalIgnoreCase)
+            || headerName.Equals(HmacAuthenticationShared.DateOverrideHeaderName, StringComparison.OrdinalIgnoreCase))
         {
             if (Request.Headers.TryGetValue(HmacAuthenticationShared.DateOverrideHeaderName, out var xDateValue))
                 return xDateValue.ToString();
@@ -278,10 +332,10 @@ public partial class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthe
         }
 
         // Handle content-type and content-length headers specifically
-        if (headerName.Equals(HmacAuthenticationShared.ContentTypeHeaderName, StringComparison.OrdinalIgnoreCase ))
+        if (headerName.Equals(HmacAuthenticationShared.ContentTypeHeaderName, StringComparison.OrdinalIgnoreCase))
             return Request.ContentType?.ToString();
 
-        if (headerName.Equals(HmacAuthenticationShared.ContentLengthHeaderName, StringComparison.OrdinalIgnoreCase ))
+        if (headerName.Equals(HmacAuthenticationShared.ContentLengthHeaderName, StringComparison.OrdinalIgnoreCase))
             return Request.ContentLength?.ToString(CultureInfo.InvariantCulture);
 
         // For all other headers, try to get the value directly

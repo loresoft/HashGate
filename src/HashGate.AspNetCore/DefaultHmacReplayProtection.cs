@@ -1,3 +1,5 @@
+using System.Diagnostics;
+
 using Microsoft.Extensions.Caching.Hybrid;
 
 namespace HashGate.AspNetCore;
@@ -32,7 +34,13 @@ internal sealed class DefaultHmacReplayProtection : IHmacReplayProtection
     {
         var ttl = expiry - DateTimeOffset.UtcNow;
         if (ttl <= TimeSpan.Zero)
+        {
+            HashGateDiagnostics.RecordReplayProtectionCheck("expired", 0);
             return false;
+        }
+
+        using var activity = HashGateDiagnostics.ActivitySource.StartActivity("HashGate.ReplayProtection.Store", ActivityKind.Internal);
+        activity?.SetTag("hashgate.replay_protection.ttl_ms", ttl.TotalMilliseconds);
 
         bool isNew = false;
 
@@ -45,6 +53,14 @@ internal sealed class DefaultHmacReplayProtection : IHmacReplayProtection
             options: new HybridCacheEntryOptions { Expiration = ttl },
             cancellationToken: cancellationToken
         );
+
+        var result = isNew ? "new" : "replay";
+        activity?.SetTag("hashgate.replay_protection.result", result);
+
+        if (!isNew)
+            activity?.SetStatus(ActivityStatusCode.Error, result);
+
+        HashGateDiagnostics.RecordReplayProtectionCheck(result, ttl.TotalMilliseconds);
 
         return isNew;
     }
