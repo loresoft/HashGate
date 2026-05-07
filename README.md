@@ -418,12 +418,11 @@ Authentication activities also add `hashgate.content_hash.validated` when the re
 | `hashgate.auth.duration`              | Histogram | `ms`          | Duration of HMAC authentication attempts                                          |
 | `hashgate.replay_protection.checks`   | Counter   | `{check}`     | Number of HMAC replay protection checks                                           |
 | `hashgate.replay_protection.replays`  | Counter   | `{replay}`    | Number of rejected replayed HMAC signatures                                       |
-| `hashgate.endpoint.requests`          | Counter   | `{request}`   | Number of rate-limited endpoint requests resolved by HashGate                     |
 | `hashgate.rate_limit.rejections`      | Counter   | `{rejection}` | Number of requests rejected by HashGate rate limiting                             |
 | `hashgate.rate_limit.provider.lookup` | Counter   | `{lookup}`    | Number of per-client rate limit provider lookups                                  |
 | `hashgate.rate_limit.provider.miss`   | Counter   | `{miss}`      | Number of per-client rate limit provider lookups that fell back to default limits |
 
-Authentication metrics include `hashgate.auth.scheme`, `hashgate.auth.result`, `hashgate.client`, `hashgate.endpoint`, and, for failures, `hashgate.auth.failure_reason`. Use `hashgate.auth.requests` grouped by `hashgate.client` and `hashgate.endpoint` to track which clients are using which API endpoints. Replay protection metrics include `hashgate.replay_protection.result`. Rate limit metrics include `hashgate.rate_limit.policy`; endpoint request metrics also include `hashgate.client` and `hashgate.endpoint`; provider lookup metrics also include `hashgate.rate_limit.provider_found`.
+Authentication metrics include `hashgate.auth.scheme`, `hashgate.auth.result`, `hashgate.client`, `hashgate.endpoint`, and, for failures, `hashgate.auth.failure_reason`. Use `hashgate.auth.requests` grouped by `hashgate.client` and `hashgate.endpoint` to track which clients are using which API endpoints. Replay protection metrics include `hashgate.replay_protection.result`. Rate limit metrics include `hashgate.rate_limit.policy`; provider lookup metrics also include `hashgate.rate_limit.provider_found`.
 
 ### Custom Key Provider
 

@@ -46,11 +46,6 @@ public static class HashGateDiagnostics
     public const string ReplayProtectionReplaysName = "hashgate.replay_protection.replays";
 
     /// <summary>
-    /// The metric name for rate-limited endpoint requests resolved by HashGate.
-    /// </summary>
-    public const string EndpointRequestsName = "hashgate.endpoint.requests";
-
-    /// <summary>
     /// The metric name for requests rejected by HashGate rate limiting.
     /// </summary>
     public const string RateLimitRejectionsName = "hashgate.rate_limit.rejections";
@@ -181,13 +176,6 @@ public static class HashGateDiagnostics
         unit: "{replay}",
         description: "Number of rejected replayed HMAC signatures.");
 
-
-    internal static readonly Counter<long> EndpointRequests = Meter.CreateCounter<long>(
-        name: EndpointRequestsName,
-        unit: "{request}",
-        description: "Number of rate-limited endpoint requests resolved by HashGate.");
-
-
     internal static readonly Counter<long> RateLimitRejections = Meter.CreateCounter<long>(
         name: RateLimitRejectionsName,
         unit: "{rejection}",
@@ -260,21 +248,6 @@ public static class HashGateDiagnostics
 
         if (result == "replay")
             ReplayProtectionReplays.Add(1, in tags);
-    }
-
-    internal static void RecordEndpointRequest(string policy, string endpoint, string client)
-    {
-        if (!EndpointRequests.Enabled)
-            return;
-
-        TagList tags =
-        [
-            new(RateLimitPolicyTagName, policy),
-            new(EndpointTagName, endpoint),
-            new(ClientTagName, client)
-        ];
-
-        EndpointRequests.Add(1, in tags);
     }
 
     internal static void RecordRateLimitRejection(string policy, double retryAfterMilliseconds)

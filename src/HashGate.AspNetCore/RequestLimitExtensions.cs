@@ -202,7 +202,6 @@ public static class RequestLimitExtensions
         Activity.Current?.SetTag(HashGateDiagnostics.RateLimitBurstFactorTagName, limit.BurstFactor);
         Activity.Current?.SetTag(HashGateDiagnostics.RateLimitPartitionSourceTagName, partitionSource);
 
-        HashGateDiagnostics.RecordEndpointRequest(policy, endpoint, client);
         HashGateDiagnostics.RecordRateLimitProviderLookup(policy, hasConfiguredLimit);
 
         // Include a content-derived version so that limit changes in configuration
