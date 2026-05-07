@@ -54,6 +54,8 @@ public partial class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthe
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
         var startTimestamp = 0L;
+        string? client = null;
+        string? endpoint = null;
         Activity? activity = null;
 
         try
@@ -74,24 +76,44 @@ public partial class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthe
             startTimestamp = Stopwatch.GetTimestamp();
             activity = HashGateDiagnostics.ActivitySource.StartActivity("HashGate.Authenticate", ActivityKind.Internal);
 
+            endpoint = GetEndpoint();
+
             activity?.SetTag(HashGateDiagnostics.AuthenticationSchemeTagName, Scheme.Name);
             activity?.SetTag(HashGateDiagnostics.ReplayProtectionEnabledTagName, Options.EnableReplayProtection);
+            activity?.SetTag(HashGateDiagnostics.EndpointTagName, endpoint);
 
             // invalid HMAC Authorization header format
             if (result != HmacHeaderError.None)
             {
                 LogInvalidAuthorizationHeader(Logger, result);
-                return CompleteAuthentication(activity, AuthenticateResult.Fail($"Invalid Authorization header: {result}"), startTimestamp, "failure", result.ToString());
+
+                return CompleteAuthentication(
+                    activity: activity,
+                    result: AuthenticateResult.Fail($"Invalid Authorization header: {result}"),
+                    startTimestamp: startTimestamp,
+                    outcome: "failure",
+                    endpoint: endpoint,
+                    client: client,
+                    failureReason: result.ToString());
             }
 
-            activity?.SetTag(HashGateDiagnostics.HmacClientTagName, hmacHeader.Client);
+            client = hmacHeader.Client;
+            activity?.SetTag(HashGateDiagnostics.ClientTagName, client);
             activity?.SetTag(HashGateDiagnostics.HmacSignedHeadersCountTagName, hmacHeader.SignedHeaders.Count);
 
             // Reject requests with an excessive number of signed headers to prevent amplification.
             if (hmacHeader.SignedHeaders.Count > Options.MaxSignedHeaders)
             {
                 LogTooManySignedHeaders(Logger, hmacHeader.SignedHeaders.Count, Options.MaxSignedHeaders);
-                return CompleteAuthentication(activity, TooManySignedHeaders, startTimestamp, "failure", "too_many_signed_headers");
+
+                return CompleteAuthentication(
+                    activity: activity,
+                    result: TooManySignedHeaders,
+                    startTimestamp: startTimestamp,
+                    outcome: "failure",
+                    endpoint: endpoint,
+                    client: client,
+                    failureReason: "too_many_signed_headers");
             }
 
             // Enforce that critical headers are always cryptographically bound to the signature.
@@ -100,14 +122,30 @@ public partial class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthe
             if (!ValidateRequiredSignedHeaders(hmacHeader.SignedHeaders))
             {
                 LogMissingRequiredSignedHeaders(Logger);
-                return CompleteAuthentication(activity, MissingRequiredSignedHeaders, startTimestamp, "failure", "missing_required_signed_headers");
+
+                return CompleteAuthentication(
+                    activity: activity,
+                    result: MissingRequiredSignedHeaders,
+                    startTimestamp: startTimestamp,
+                    outcome: "failure",
+                    endpoint: endpoint,
+                    client: client,
+                    failureReason: "missing_required_signed_headers");
             }
 
             if (!ValidateTimestamp(out var requestTime))
             {
                 // Reject stale/future requests outside the allowed replay-protection window.
                 LogInvalidTimestamp(Logger, requestTime);
-                return CompleteAuthentication(activity, InvalidTimestampHeader, startTimestamp, "failure", "invalid_timestamp");
+
+                return CompleteAuthentication(
+                    activity: activity,
+                    result: InvalidTimestampHeader,
+                    startTimestamp: startTimestamp,
+                    outcome: "failure",
+                    endpoint: endpoint,
+                    client: client,
+                    failureReason: "invalid_timestamp");
             }
 
             // Resolve keyed provider when configured; otherwise use the default registration.
@@ -125,7 +163,15 @@ public partial class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthe
             {
                 // Unknown client IDs are treated as authentication failures.
                 LogInvalidClientName(Logger, hmacHeader.Client);
-                return CompleteAuthentication(activity, InvalidClientName, startTimestamp, "failure", "invalid_client");
+
+                return CompleteAuthentication(
+                    activity: activity,
+                    result: InvalidClientName,
+                    startTimestamp: startTimestamp,
+                    outcome: "failure",
+                    endpoint: endpoint,
+                    client: client,
+                    failureReason: "invalid_client");
             }
 
             if (!await ValidateContentHash())
@@ -133,7 +179,15 @@ public partial class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthe
                 // Ensure the request body hash matches what the client signed.
                 LogInvalidContentHash(Logger);
                 activity?.AddEvent(new ActivityEvent("hashgate.content_hash.failed"));
-                return CompleteAuthentication(activity, InvalidContentHashHeader, startTimestamp, "failure", "invalid_content_hash");
+
+                return CompleteAuthentication(
+                    activity: activity,
+                    result: InvalidContentHashHeader,
+                    startTimestamp: startTimestamp,
+                    outcome: "failure",
+                    endpoint: endpoint,
+                    client: client,
+                    failureReason: "invalid_content_hash");
             }
 
             activity?.AddEvent(new ActivityEvent("hashgate.content_hash.validated"));
@@ -152,7 +206,15 @@ public partial class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthe
             {
                 // Use constant-time comparison to avoid timing side-channel leakage.
                 LogInvalidSignature(Logger, hmacHeader.Client);
-                return CompleteAuthentication(activity, InvalidSignature, startTimestamp, "failure", "invalid_signature");
+
+                return CompleteAuthentication(
+                    activity: activity,
+                    result: InvalidSignature,
+                    startTimestamp: startTimestamp,
+                    outcome: "failure",
+                    endpoint: endpoint,
+                    client: client,
+                    failureReason: "invalid_signature");
             }
 
             if (Options.EnableReplayProtection)
@@ -170,7 +232,15 @@ public partial class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthe
                     {
                         LogReplayedSignature(Logger, hmacHeader.Client);
                         activity?.SetTag(HashGateDiagnostics.ReplayProtectionResultTagName, "replay");
-                        return CompleteAuthentication(activity, ReplayedSignature, startTimestamp, "failure", "replayed_signature");
+
+                        return CompleteAuthentication(
+                            activity: activity,
+                            result: ReplayedSignature,
+                            startTimestamp: startTimestamp,
+                            outcome: "failure",
+                            endpoint: endpoint,
+                            client: client,
+                            failureReason: "replayed_signature");
                     }
 
                     activity?.SetTag(HashGateDiagnostics.ReplayProtectionResultTagName, "new");
@@ -190,7 +260,13 @@ public partial class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthe
             var ticket = new AuthenticationTicket(principal, Scheme.Name);
 
             // Return a successful authentication ticket so authorization can evaluate policies.
-            return CompleteAuthentication(activity, AuthenticateResult.Success(ticket), startTimestamp, "success");
+            return CompleteAuthentication(
+                activity: activity,
+                result: AuthenticateResult.Success(ticket),
+                startTimestamp: startTimestamp,
+                outcome: "success",
+                endpoint: endpoint,
+                client: client);
         }
         catch (OperationCanceledException) when (Context.RequestAborted.IsCancellationRequested)
         {
@@ -203,7 +279,14 @@ public partial class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthe
             activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             activity?.AddException(ex);
 
-            return CompleteAuthentication(activity, AuthenticationError, startTimestamp, "failure", "authentication_error");
+            return CompleteAuthentication(
+                activity: activity,
+                result: AuthenticationError,
+                startTimestamp: startTimestamp,
+                outcome: "failure",
+                endpoint: endpoint,
+                client: client,
+                failureReason: "authentication_error");
         }
         finally
         {
@@ -216,6 +299,8 @@ public partial class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthe
         AuthenticateResult result,
         long startTimestamp,
         string outcome,
+        string? endpoint,
+        string? client,
         string? failureReason = null)
     {
         activity?.SetTag(HashGateDiagnostics.AuthenticationResultTagName, outcome);
@@ -226,11 +311,16 @@ public partial class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthe
             activity?.SetStatus(ActivityStatusCode.Error, failureReason);
         }
 
-        HashGateDiagnostics.RecordAuthentication(Scheme.Name, outcome, failureReason, startTimestamp);
+        HashGateDiagnostics.RecordAuthentication(
+            scheme: Scheme.Name,
+            result: outcome,
+            failureReason: failureReason,
+            elapsedTicks: startTimestamp,
+            endpoint: endpoint,
+            client: client);
 
         return result;
     }
-
 
     private async Task<bool> ValidateContentHash()
     {
@@ -362,6 +452,13 @@ public partial class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthe
         }
 
         return hasHost && hasTimestamp && hasContentHash;
+    }
+
+    private string GetEndpoint()
+    {
+        return Context.GetEndpoint()?.DisplayName
+            ?? Request.Path.Value
+            ?? "unknown";
     }
 
 

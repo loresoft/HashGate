@@ -21,7 +21,7 @@ public class DiagnosticsTests
         var activities = new List<Activity>();
         var activityLock = new object();
 
-        listener.ShouldListenTo = source => source.Name == HashGateDiagnostics.ActivitySourceName;
+        listener.ShouldListenTo = source => source.Name == HashGateDiagnostics.SourceName;
         listener.Sample = (ref _) => ActivitySamplingResult.AllDataAndRecorded;
         listener.ActivityStopped = activity =>
         {
@@ -56,7 +56,7 @@ public class DiagnosticsTests
         var activities = new List<Activity>();
         var activityLock = new object();
 
-        listener.ShouldListenTo = source => source.Name == HashGateDiagnostics.ActivitySourceName;
+        listener.ShouldListenTo = source => source.Name == HashGateDiagnostics.SourceName;
         listener.Sample = (ref _) => ActivitySamplingResult.AllDataAndRecorded;
         listener.ActivityStopped = activity =>
         {
@@ -88,11 +88,12 @@ public class DiagnosticsTests
     public async Task AuthenticateAsync_WhenSignatureIsValid_EmitsSuccessActivity()
     {
         var client = $"diagnostics-success-{Guid.NewGuid():N}";
+        const string endpoint = "/orders/42";
         using var listener = new ActivityListener();
         var activities = new List<Activity>();
         var activityLock = new object();
 
-        listener.ShouldListenTo = source => source.Name == HashGateDiagnostics.ActivitySourceName;
+        listener.ShouldListenTo = source => source.Name == HashGateDiagnostics.SourceName;
         listener.Sample = (ref _) => ActivitySamplingResult.AllDataAndRecorded;
         listener.ActivityStopped = activity =>
         {
@@ -103,7 +104,7 @@ public class DiagnosticsTests
         ActivitySource.AddActivityListener(listener);
 
         var handler = CreateHandler();
-        var context = CreateHttpContext(client: client);
+        var context = CreateHttpContext(url: endpoint, client: client);
         await handler.InitializeAsync(CreateScheme(), context);
 
         var result = await handler.AuthenticateAsync();
@@ -117,11 +118,12 @@ public class DiagnosticsTests
         var activity = Assert.Single(capturedActivities, a =>
             a.OperationName == "HashGate.Authenticate"
             && Equals(GetTag(a, HashGateDiagnostics.AuthenticationResultTagName), "success")
-            && Equals(GetTag(a, HashGateDiagnostics.HmacClientTagName), client)
+            && Equals(GetTag(a, HashGateDiagnostics.ClientTagName), client)
         );
 
         Assert.Equal("success", GetTag(activity, HashGateDiagnostics.AuthenticationResultTagName));
-        Assert.Equal(client, GetTag(activity, HashGateDiagnostics.HmacClientTagName));
+        Assert.Equal(client, GetTag(activity, HashGateDiagnostics.ClientTagName));
+        Assert.Equal(endpoint, GetTag(activity, HashGateDiagnostics.EndpointTagName));
         Assert.Equal(CreateScheme().Name, GetTag(activity, HashGateDiagnostics.AuthenticationSchemeTagName));
         Assert.Equal(ActivityStatusCode.Unset, activity.Status);
         Assert.Contains(activity.Events, e => e.Name == "hashgate.content_hash.validated");
@@ -135,7 +137,7 @@ public class DiagnosticsTests
         var activities = new List<Activity>();
         var activityLock = new object();
 
-        listener.ShouldListenTo = source => source.Name == HashGateDiagnostics.ActivitySourceName;
+        listener.ShouldListenTo = source => source.Name == HashGateDiagnostics.SourceName;
         listener.Sample = (ref _) => ActivitySamplingResult.AllDataAndRecorded;
         listener.ActivityStopped = activity =>
         {
@@ -161,7 +163,7 @@ public class DiagnosticsTests
 
         var activity = Assert.Single(capturedActivities, a =>
             a.OperationName == "HashGate.Authenticate"
-            && Equals(GetTag(a, HashGateDiagnostics.HmacClientTagName), client)
+            && Equals(GetTag(a, HashGateDiagnostics.ClientTagName), client)
             && Equals(GetTag(a, HashGateDiagnostics.AuthenticationFailureReasonTagName), "invalid_signature")
         );
 
@@ -173,6 +175,8 @@ public class DiagnosticsTests
     [Fact]
     public async Task AuthenticateAsync_RecordsAuthMetrics()
     {
+        var client = $"diagnostics-metrics-{Guid.NewGuid():N}";
+        const string endpoint = "/metrics/usage";
         var measurements = new List<(string Instrument, long Value, Dictionary<string, object?> Tags)>();
         var measurementLock = new object();
 
@@ -194,7 +198,7 @@ public class DiagnosticsTests
         listener.Start();
 
         var handler = CreateHandler();
-        var context = CreateHttpContext(secretKey: "Test-HMAC-Key", providerKey: "Wrong-Key");
+        var context = CreateHttpContext(url: endpoint, secretKey: "Test-HMAC-Key", providerKey: "Wrong-Key", client: client);
 
         await handler.InitializeAsync(CreateScheme(), context);
 
@@ -212,12 +216,16 @@ public class DiagnosticsTests
             m.Instrument == HashGateDiagnostics.AuthenticationRequestsName
             && m.Value == 1
             && Equals(m.Tags[HashGateDiagnostics.AuthenticationResultTagName], "failure")
+            && Equals(m.Tags[HashGateDiagnostics.ClientTagName], client)
+            && Equals(m.Tags[HashGateDiagnostics.EndpointTagName], endpoint)
             && Equals(m.Tags[HashGateDiagnostics.AuthenticationFailureReasonTagName], "invalid_signature")
         );
 
         Assert.Contains(capturedMeasurements, m =>
             m.Instrument == HashGateDiagnostics.AuthenticationFailuresName
             && m.Value == 1
+            && Equals(m.Tags[HashGateDiagnostics.ClientTagName], client)
+            && Equals(m.Tags[HashGateDiagnostics.EndpointTagName], endpoint)
             && Equals(m.Tags[HashGateDiagnostics.AuthenticationFailureReasonTagName], "invalid_signature")
         );
     }

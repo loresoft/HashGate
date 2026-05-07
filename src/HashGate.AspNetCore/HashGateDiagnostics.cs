@@ -13,7 +13,7 @@ public static class HashGateDiagnostics
     /// <summary>
     /// The name of the activity source used for HashGate ASP.NET Core tracing.
     /// </summary>
-    public const string ActivitySourceName = "HashGate.AspNetCore";
+    public const string SourceName = "HashGate.AspNetCore";
 
     /// <summary>
     /// The name of the meter used for HashGate ASP.NET Core metrics.
@@ -92,11 +92,6 @@ public static class HashGateDiagnostics
     public const string ReplayProtectionResultTagName = "hashgate.replay_protection.result";
 
     /// <summary>
-    /// The tag name for the HMAC client identifier.
-    /// </summary>
-    public const string HmacClientTagName = "hashgate.hmac.client";
-
-    /// <summary>
     /// The tag name for the count of signed HMAC headers.
     /// </summary>
     public const string HmacSignedHeadersCountTagName = "hashgate.hmac.signed_headers.count";
@@ -156,7 +151,8 @@ public static class HashGateDiagnostics
     /// </summary>
     public const string ClientTagName = "hashgate.client";
 
-    internal static readonly ActivitySource ActivitySource = new(ActivitySourceName, ThisAssembly.FileVersion);
+
+    internal static readonly ActivitySource ActivitySource = new(SourceName, ThisAssembly.FileVersion);
     internal static readonly Meter Meter = new(MeterName, ThisAssembly.FileVersion);
 
     internal static readonly Counter<long> AuthenticationRequests = Meter.CreateCounter<long>(
@@ -208,7 +204,13 @@ public static class HashGateDiagnostics
         description: "Number of per-client rate limit provider lookups that fell back to default limits.");
 
 
-    internal static void RecordAuthentication(string scheme, string result, string? failureReason, long elapsedTicks)
+    internal static void RecordAuthentication(
+        string scheme,
+        string result,
+        string? failureReason,
+        long elapsedTicks,
+        string? endpoint,
+        string? client)
     {
         if (!AuthenticationRequests.Enabled &&
             !AuthenticationFailures.Enabled &&
@@ -217,26 +219,28 @@ public static class HashGateDiagnostics
             return;
         }
 
-        KeyValuePair<string, object?>[] tags = failureReason is null
-            ?
-            [
-                new(AuthenticationSchemeTagName, scheme),
-                new(AuthenticationResultTagName, result)
-            ]
-            :
-            [
-                new(AuthenticationSchemeTagName, scheme),
-                new(AuthenticationResultTagName, result),
-                new(AuthenticationFailureReasonTagName, failureReason)
-            ];
-
-        AuthenticationRequests.Add(1, tags);
+        TagList tags =
+        [
+            new(AuthenticationSchemeTagName, scheme),
+            new(AuthenticationResultTagName, result)
+        ];
 
         if (failureReason is not null)
-            AuthenticationFailures.Add(1, tags);
+            tags.Add(new(AuthenticationFailureReasonTagName, failureReason));
+
+        if (!string.IsNullOrWhiteSpace(endpoint))
+            tags.Add(new(EndpointTagName, endpoint));
+
+        if (!string.IsNullOrWhiteSpace(client))
+            tags.Add(new(ClientTagName, client));
+
+        AuthenticationRequests.Add(1, in tags);
+
+        if (failureReason is not null)
+            AuthenticationFailures.Add(1, in tags);
 
         var elapsed = GetElapsedMilliseconds(elapsedTicks);
-        AuthenticationDuration.Record(elapsed, tags);
+        AuthenticationDuration.Record(elapsed, in tags);
     }
 
     internal static void RecordReplayProtectionCheck(string result, double ttlMilliseconds)
@@ -247,15 +251,15 @@ public static class HashGateDiagnostics
             return;
         }
 
-        KeyValuePair<string, object?>[] tags =
+        TagList tags =
         [
             new(ReplayProtectionResultTagName, result)
         ];
 
-        ReplayProtectionChecks.Add(1, tags);
+        ReplayProtectionChecks.Add(1, in tags);
 
         if (result == "replay")
-            ReplayProtectionReplays.Add(1, tags);
+            ReplayProtectionReplays.Add(1, in tags);
     }
 
     internal static void RecordEndpointRequest(string policy, string endpoint, string client)
@@ -263,14 +267,14 @@ public static class HashGateDiagnostics
         if (!EndpointRequests.Enabled)
             return;
 
-        KeyValuePair<string, object?>[] tags =
+        TagList tags =
         [
             new(RateLimitPolicyTagName, policy),
             new(EndpointTagName, endpoint),
             new(ClientTagName, client)
         ];
 
-        EndpointRequests.Add(1, tags);
+        EndpointRequests.Add(1, in tags);
     }
 
     internal static void RecordRateLimitRejection(string policy, double retryAfterMilliseconds)
@@ -278,12 +282,12 @@ public static class HashGateDiagnostics
         if (!RateLimitRejections.Enabled)
             return;
 
-        KeyValuePair<string, object?>[] tags =
+        TagList tags =
         [
             new(RateLimitPolicyTagName, policy)
         ];
 
-        RateLimitRejections.Add(1, tags);
+        RateLimitRejections.Add(1, in tags);
     }
 
     internal static void RecordRateLimitProviderLookup(string policy, bool found)
@@ -294,16 +298,16 @@ public static class HashGateDiagnostics
             return;
         }
 
-        KeyValuePair<string, object?>[] tags =
+        TagList tags =
         [
             new(RateLimitPolicyTagName, policy),
             new(RateLimitProviderFoundTagName, found)
         ];
 
-        RateLimitProviderLookups.Add(1, tags);
+        RateLimitProviderLookups.Add(1, in tags);
 
         if (!found)
-            RateLimitProviderMisses.Add(1, tags);
+            RateLimitProviderMisses.Add(1, in tags);
     }
 
     private static double GetElapsedMilliseconds(long startTimestamp)
