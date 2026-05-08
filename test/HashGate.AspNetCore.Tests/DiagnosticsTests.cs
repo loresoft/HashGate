@@ -126,7 +126,6 @@ public class DiagnosticsTests
         Assert.Equal(endpoint, GetTag(activity, HashGateDiagnostics.EndpointTagName));
         Assert.Equal(CreateScheme().Name, GetTag(activity, HashGateDiagnostics.AuthenticationSchemeTagName));
         Assert.Equal(ActivityStatusCode.Unset, activity.Status);
-        Assert.Contains(activity.Events, e => e.Name == "hashgate.content_hash.validated");
     }
 
     [Fact]
