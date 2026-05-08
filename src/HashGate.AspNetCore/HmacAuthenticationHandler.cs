@@ -178,7 +178,6 @@ public partial class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthe
             {
                 // Ensure the request body hash matches what the client signed.
                 LogInvalidContentHash(Logger);
-                activity?.AddEvent(new ActivityEvent("hashgate.content_hash.failed"));
 
                 return CompleteAuthentication(
                     activity: activity,
@@ -189,8 +188,6 @@ public partial class HmacAuthenticationHandler : AuthenticationHandler<HmacAuthe
                     client: client,
                     failureReason: "invalid_content_hash");
             }
-
-            activity?.AddEvent(new ActivityEvent("hashgate.content_hash.validated"));
 
             var headerValues = GetHeaderValues(hmacHeader.SignedHeaders);
 
