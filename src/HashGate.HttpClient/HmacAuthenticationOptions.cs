@@ -1,5 +1,3 @@
-using System.ComponentModel.DataAnnotations;
-
 namespace HashGate.HttpClient;
 
 /// <summary>
@@ -24,6 +22,7 @@ namespace HashGate.HttpClient;
 ///   "HmacAuthentication": {
 ///     "Client": "my-client-id",
 ///     "Secret": "my-secret-key",
+///     "BaseAddress": "https://api.example.com/",
 ///     "SignedHeaders": ["host", "x-timestamp", "x-content-sha256", "content-type"]
 ///   }
 /// }
@@ -34,6 +33,7 @@ namespace HashGate.HttpClient;
 /// {
 ///     options.Client = "my-client-id";
 ///     options.Secret = "my-secret-key";
+///     options.BaseAddress = new Uri("https://api.example.com/");
 ///     options.SignedHeaders = ["host", "x-timestamp", "x-content-sha256"];
 /// });
 /// </code>
@@ -63,7 +63,6 @@ public class HmacAuthenticationOptions
     /// <item><description>Apply client-specific authorization policies</description></item>
     /// </list>
     /// </remarks>
-    [Required]
     public string Client { get; set; } = null!;
 
     /// <summary>
@@ -88,8 +87,18 @@ public class HmacAuthenticationOptions
     /// Never expose this value in logs, source code, or client-side applications.
     /// </para>
     /// </remarks>
-    [Required]
     public string Secret { get; set; } = null!;
+
+    /// <summary>
+    /// Gets or sets the base address for HTTP clients using HMAC authentication.
+    /// </summary>
+    /// <value>
+    /// The base URI for outgoing requests, or <c>null</c> when the HTTP client base address is configured separately.
+    /// </value>
+    /// <remarks>
+    /// This value can be used by callers that create or configure <see cref="System.Net.Http.HttpClient"/> instances from these options.
+    /// </remarks>
+    public Uri? BaseAddress { get; set; }
 
     /// <summary>
     /// Gets or sets the list of HTTP header names that should be included in the HMAC signature calculation.
@@ -126,5 +135,5 @@ public class HmacAuthenticationOptions
     /// options.SignedHeaders = ["host", "x-timestamp", "x-content-sha256", "content-type", "user-agent"];
     /// </code>
     /// </example>
-    public IReadOnlyList<string>? SignedHeaders { get; set; } = HmacAuthenticationShared.DefaultSignedHeaders;
+    public IReadOnlyList<string>? SignedHeaders { get; set; }
 }

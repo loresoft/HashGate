@@ -18,7 +18,7 @@ namespace HashGate.HttpClient;
 ///         client.Timeout = TimeSpan.FromSeconds(30);
 ///     })
 ///     .Build();
-/// 
+///
 /// var response = await httpClient.GetAsync("/api/endpoint");
 /// </code>
 /// </example>
@@ -43,7 +43,7 @@ public class HttpClientBuilder
     /// </summary>
     /// <param name="client">The client identifier used for HMAC authentication.</param>
     /// <param name="secret">The secret key used for HMAC signature generation.</param>
-    /// <param name="signedHeaders">Optional list of HTTP headers to include in the HMAC signature. 
+    /// <param name="signedHeaders">Optional list of HTTP headers to include in the HMAC signature.
     /// If not specified, default headers will be used.</param>
     /// <returns>The current <see cref="HttpClientBuilder"/> instance for method chaining.</returns>
     public HttpClientBuilder AddHmacAuthentication(string client, string secret, IReadOnlyList<string>? signedHeaders = null)
@@ -55,7 +55,7 @@ public class HttpClientBuilder
             SignedHeaders = signedHeaders ?? HmacAuthenticationShared.DefaultSignedHeaders
         };
 
-        var wrapper = new OptionsWrapper<HmacAuthenticationOptions>(options);
+        var wrapper = new StaticOptionsMonitor<HmacAuthenticationOptions>(options);
         var handler = new HmacAuthenticationHttpHandler(wrapper);
 
         _handlers.Add(handler);
@@ -95,5 +95,15 @@ public class HttpClientBuilder
         _clientConfigurator?.Invoke(client);
 
         return client;
+    }
+
+    private sealed class StaticOptionsMonitor<TOptions>(TOptions currentValue) : IOptionsMonitor<TOptions>
+        where TOptions : class
+    {
+        public TOptions CurrentValue { get; } = currentValue;
+
+        public TOptions Get(string? name) => CurrentValue;
+
+        public IDisposable? OnChange(Action<TOptions, string?> listener) => null;
     }
 }

@@ -126,6 +126,69 @@ public class HttpRequestMessageExtensionsTests
         // Precomputed SHA256 base64 for {"First":"Alice","Last":"Smith","Email":"alice@example.com"}
         Assert.Equal("omo2MSjkYihoXjcxJC+NuO8JK7z6BDe6np/EQxiAq5I=", hash);
     }
+
+    [Fact]
+    public async Task GenerateContentHash_WhenContentIsByteArrayContent_PreservesSameContentInstance()
+    {
+        var content = new ByteArrayContent(Encoding.UTF8.GetBytes("hello world"));
+        var request = new HttpRequestMessage(HttpMethod.Post, "https://localhost/api/test")
+        {
+            Content = content
+        };
+
+        await HttpRequestMessageExtensions.GenerateContentHash(request, TestContext.Current.CancellationToken);
+
+        // Buffered ByteArrayContent should not be recreated
+        Assert.Same(content, request.Content);
+    }
+
+    [Fact]
+    public async Task GenerateContentHash_WhenContentIsNotByteArrayContent_RecreatesReadableContent()
+    {
+        var content = new StreamContent(new MemoryStream(Encoding.UTF8.GetBytes("hello world")));
+        content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("text/plain");
+        var request = new HttpRequestMessage(HttpMethod.Post, "https://localhost/api/test")
+        {
+            Content = content
+        };
+
+        await HttpRequestMessageExtensions.GenerateContentHash(request, TestContext.Current.CancellationToken);
+
+        // Non-buffered content is recreated so the body can be read again for sending
+        Assert.NotSame(content, request.Content);
+        var body = await request.Content!.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        Assert.Equal("hello world", body);
+    }
+
+    [Fact]
+    public async Task GenerateContentHash_WhenContentRecreated_PreservesContentHeaders()
+    {
+        var content = new StreamContent(new MemoryStream(Encoding.UTF8.GetBytes("hello world")));
+        content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("text/plain");
+        var request = new HttpRequestMessage(HttpMethod.Post, "https://localhost/api/test")
+        {
+            Content = content
+        };
+
+        await HttpRequestMessageExtensions.GenerateContentHash(request, TestContext.Current.CancellationToken);
+
+        Assert.Equal("text/plain", request.Content!.Headers.ContentType?.MediaType);
+    }
+
+    [Fact]
+    public async Task GenerateContentHash_WithCancellationToken_ReturnsExpectedHash()
+    {
+        var content = new StringContent("hello world", Encoding.UTF8, "text/plain");
+        var request = new HttpRequestMessage(HttpMethod.Post, "https://localhost/api/test")
+        {
+            Content = content
+        };
+
+        var hash = await HttpRequestMessageExtensions.GenerateContentHash(request, TestContext.Current.CancellationToken);
+
+        // Precomputed SHA256 base64 for "hello world"
+        Assert.Equal("uU0nuZNNPgilLlLX2n2r+sSE7+N6U4DukIj3rOLvzek=", hash);
+    }
 }
 
 public record User(string First, string Last, string Email);

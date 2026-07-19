@@ -193,15 +193,12 @@ public static class HmacAuthenticationShared
         var hash = hmac.ComputeHash(dataBytes);
         return Convert.ToBase64String(hash);
 #else
-        // Compute HMACSHA256
+        // Compute HMACSHA256 using the allocation-free one-shot static API
         Span<byte> hash = stackalloc byte[32];
-        using var hmac = new HMACSHA256(secretBytes);
-
-        // Try to compute the hash using stackalloc for performance
-        if (!hmac.TryComputeHash(dataBytes, hash, out _))
+        if (!HMACSHA256.TryHashData(secretBytes, dataBytes, hash, out _))
         {
-            // Fallback if stackalloc is not large enough (should not happen for SHA256)
-            hash = hmac.ComputeHash(dataBytes);
+            // Fallback if the destination is not large enough (should not happen for SHA256)
+            hash = HMACSHA256.HashData(secretBytes, dataBytes);
         }
 
         // 32 bytes SHA256 -> 44 chars base64

@@ -43,16 +43,29 @@ namespace HashGate.HttpClient;
 /// </example>
 public class HmacAuthenticationHttpHandler : DelegatingHandler
 {
-    private readonly IOptions<HmacAuthenticationOptions> _options;
+    /// <summary>
+    /// A placeholder base address used to indicate that the actual base address should be applied later.
+    /// </summary>
+    internal static readonly Uri DeferredBaseAddress = new("http://hashgate.invalid/");
+
+    private readonly IOptionsMonitor<HmacAuthenticationOptions> _optionsMonitor;
+    private readonly string _optionsName;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="HmacAuthenticationHttpHandler"/> class.
     /// </summary>
-    /// <param name="options">The HMAC authentication options containing client credentials and configuration.</param>
-    /// <exception cref="ArgumentNullException">Thrown when <paramref name="options"/> is <c>null</c>.</exception>
-    public HmacAuthenticationHttpHandler(IOptions<HmacAuthenticationOptions> options)
+    /// <param name="optionsMonitor">The monitored HMAC authentication options containing client credentials and configuration.</param>
+    /// <param name="optionsName">The named options instance to use, or <c>null</c> to use the default options instance.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="optionsMonitor"/> is <c>null</c>.</exception>
+    public HmacAuthenticationHttpHandler(IOptionsMonitor<HmacAuthenticationOptions> optionsMonitor, string? optionsName = null)
     {
-        _options = options;
+        if (optionsMonitor is null)
+            throw new ArgumentNullException(nameof(optionsMonitor));
+
+        // CurrentValue is equivalent to Get(Options.DefaultName), so the default and named
+        // cases collapse into a single Get(...) call at request time.
+        _optionsMonitor = optionsMonitor;
+        _optionsName = optionsName ?? Microsoft.Extensions.Options.Options.DefaultName;
     }
 
     /// <summary>
@@ -67,7 +80,7 @@ public class HmacAuthenticationHttpHandler : DelegatingHandler
     /// <remarks>
     /// <para>
     /// This method checks if the request already has an Authorization header. If not, it calls the
-    /// <see cref="HttpRequestMessageExtensions.AddHmacAuthentication(HttpRequestMessage, HmacAuthenticationOptions)"/>
+    /// <see cref="HttpRequestMessageExtensions.AddHmacAuthentication(HttpRequestMessage, HmacAuthenticationOptions, CancellationToken)"/>
     /// extension method to add the required HMAC authentication headers including:
     /// </para>
     /// <list type="bullet">
@@ -84,10 +97,55 @@ public class HmacAuthenticationHttpHandler : DelegatingHandler
     /// <exception cref="InvalidOperationException">Thrown when HMAC authentication options are invalid or incomplete.</exception>
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
+        if (request == null)
+            throw new ArgumentNullException(nameof(request));
+
+        var options = _optionsMonitor.Get(_optionsName);
+        ApplyBaseAddress(request, options);
+
         // If the request does not already have an Authorization header, add HMAC headers
         if (request.Headers.Authorization == null)
-            await request.AddHmacAuthentication(_options.Value);
+            await request.AddHmacAuthentication(options, cancellationToken).ConfigureAwait(false);
 
-        return await base.SendAsync(request, cancellationToken);
+        return await base.SendAsync(request, cancellationToken).ConfigureAwait(false);
     }
+
+    private static void ApplyBaseAddress(HttpRequestMessage request, HmacAuthenticationOptions options)
+    {
+        if (request.RequestUri == null)
+            return;
+
+        if (options.BaseAddress == null)
+        {
+            // A null options base address is valid when the HttpClient supplies its own base address
+            // (or the caller uses absolute request URIs); those requests already carry a usable absolute URI.
+            // Only fail when there is nothing to resolve against: a relative URI, or the unresolved deferred
+            // placeholder, either of which would otherwise be sent to the invalid placeholder host.
+            if (!request.RequestUri.IsAbsoluteUri || IsDeferredBaseAddress(request.RequestUri))
+            {
+                throw new InvalidOperationException(
+                    "The HMAC authentication base address has not been configured. " +
+                    "Set HmacAuthenticationOptions.BaseAddress, configure the HttpClient base address, or provide an absolute request URI.");
+            }
+
+            return;
+        }
+
+        if (!request.RequestUri.IsAbsoluteUri)
+        {
+            request.RequestUri = new Uri(options.BaseAddress, request.RequestUri);
+            return;
+        }
+
+        if (IsDeferredBaseAddress(request.RequestUri))
+        {
+            var relativeUri = request.RequestUri.PathAndQuery.TrimStart('/');
+            request.RequestUri = new Uri(options.BaseAddress, relativeUri);
+        }
+    }
+
+    private static bool IsDeferredBaseAddress(Uri requestUri)
+        => string.Equals(requestUri.Scheme, DeferredBaseAddress.Scheme, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(requestUri.Host, DeferredBaseAddress.Host, StringComparison.OrdinalIgnoreCase)
+            && requestUri.Port == DeferredBaseAddress.Port;
 }

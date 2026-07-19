@@ -21,6 +21,7 @@ public static class HttpRequestMessageExtensions
     /// If <c>null</c>, the default signed headers (host, x-timestamp, x-content-sha256) will be used.
     /// If provided, the default headers will be merged with the specified headers.
     /// </param>
+    /// <param name="cancellationToken">A cancellation token to cancel operation.</param>
     /// <returns>A task that represents the asynchronous operation of adding HMAC authentication headers.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="request"/> is <c>null</c>.</exception>
     /// <exception cref="ArgumentException">Thrown when <paramref name="client"/> or <paramref name="secret"/> is <c>null</c>, empty, or whitespace.</exception>
@@ -56,7 +57,8 @@ public static class HttpRequestMessageExtensions
         this HttpRequestMessage request,
         string client,
         string secret,
-        IReadOnlyList<string>? signedHeaders = null)
+        IReadOnlyList<string>? signedHeaders = null,
+        CancellationToken cancellationToken = default)
     {
         if (request is null)
             throw new ArgumentNullException(nameof(request));
@@ -74,18 +76,24 @@ public static class HttpRequestMessageExtensions
             throw new ArgumentException("Secret cannot be empty or whitespace.", nameof(secret));
 
         // ensure required headers are present, dedup and sort case-insensitively
-        var headerSet = new SortedSet<string>(HmacAuthenticationShared.DefaultSignedHeaders, StringComparer.OrdinalIgnoreCase);
-        if (signedHeaders != null)
+        if (signedHeaders is null)
+        {
+            // common case: reuse the shared default headers without allocating
+            signedHeaders = HmacAuthenticationShared.DefaultSignedHeaders;
+        }
+        else
+        {
+            var headerSet = new SortedSet<string>(HmacAuthenticationShared.DefaultSignedHeaders, StringComparer.OrdinalIgnoreCase);
             headerSet.UnionWith(signedHeaders);
-
-        signedHeaders = [.. headerSet];
+            signedHeaders = [.. headerSet];
+        }
 
         // add timestamp header
         var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         request.Headers.Add(HmacAuthenticationShared.TimeStampHeaderName, timestamp.ToString());
 
         // compute content hash
-        var contentHash = await GenerateContentHash(request);
+        var contentHash = await GenerateContentHash(request, cancellationToken).ConfigureAwait(false);
         request.Headers.Add(HmacAuthenticationShared.ContentHashHeaderName, contentHash);
 
         // generate nonce
@@ -119,10 +127,11 @@ public static class HttpRequestMessageExtensions
     /// </summary>
     /// <param name="request">The HTTP request message to add HMAC authentication headers to.</param>
     /// <param name="options">The HMAC authentication options containing client credentials and configuration.</param>
+    /// <param name="cancellationToken">A cancellation token to cancel operation.</param>
     /// <returns>A task that represents the asynchronous operation of adding HMAC authentication headers.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="request"/> or <paramref name="options"/> is <c>null</c>.</exception>
     /// <remarks>
-    /// This method delegates to the main <see cref="AddHmacAuthentication(HttpRequestMessage, string, string, IReadOnlyList{string}?)"/>
+    /// This method delegates to the main <see cref="AddHmacAuthentication(HttpRequestMessage, string, string, IReadOnlyList{string}?, CancellationToken)"/>
     /// method using the client, secret, and signed headers from the provided options.
     /// </remarks>
     /// <example>
@@ -140,7 +149,8 @@ public static class HttpRequestMessageExtensions
     /// </example>
     public static Task AddHmacAuthentication(
         this HttpRequestMessage request,
-        HmacAuthenticationOptions options)
+        HmacAuthenticationOptions options,
+        CancellationToken cancellationToken = default)
     {
         if (request is null)
             throw new ArgumentNullException(nameof(request));
@@ -150,7 +160,8 @@ public static class HttpRequestMessageExtensions
         return request.AddHmacAuthentication(
             client: options.Client,
             secret: options.Secret,
-            signedHeaders: options.SignedHeaders);
+            signedHeaders: options.SignedHeaders,
+            cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -158,6 +169,7 @@ public static class HttpRequestMessageExtensions
     /// If the request has no content, returns the hash of an empty string.
     /// </summary>
     /// <param name="request">The HTTP request message to generate the content hash for.</param>
+    /// <param name="cancellationToken">A cancellation token to cancel operation.</param>
     /// <returns>
     /// A task that represents the asynchronous operation. The task result contains a Base64-encoded SHA256 hash of the request content.
     /// </returns>
@@ -187,27 +199,32 @@ public static class HttpRequestMessageExtensions
     /// // contentHash will contain the Base64-encoded SHA256 hash of the JSON content
     /// </code>
     /// </example>
-    public static async Task<string> GenerateContentHash(this HttpRequestMessage request)
+    public static async Task<string> GenerateContentHash(
+        this HttpRequestMessage request,
+        CancellationToken cancellationToken = default)
     {
         if (request.Content == null)
             return HmacAuthenticationShared.EmptyContentHash;
 
-        var bodyBytes = await request.Content.ReadAsByteArrayAsync();
-
 #if NETSTANDARD2_0 || NETFRAMEWORK
+        var bodyBytes = await request.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
         using var sha256 = SHA256.Create();
         var hashBytes = sha256.ComputeHash(bodyBytes);
 #else
+        var bodyBytes = await request.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
         var hashBytes = SHA256.HashData(bodyBytes);
 #endif
 
-        // consume the content stream, need to recreate it
-        var originalContent = new ByteArrayContent(bodyBytes);
-        foreach (var header in request.Content.Headers)
-            originalContent.Headers.TryAddWithoutValidation(header.Key, header.Value);
+        // consume the content stream, need to recreate it unless it is already buffered
+        if (request.Content is not ByteArrayContent)
+        {
+            var originalContent = new ByteArrayContent(bodyBytes);
+            foreach (var header in request.Content.Headers)
+                originalContent.Headers.TryAddWithoutValidation(header.Key, header.Value);
 
-        // Restore content with headers
-        request.Content = originalContent;
+            // Restore content with headers
+            request.Content = originalContent;
+        }
 
 #if !NETSTANDARD2_0 && !NETFRAMEWORK
         // 32 bytes SHA256 -> 44 chars base64

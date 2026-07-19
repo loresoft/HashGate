@@ -11,13 +11,8 @@ internal static class Program
     {
         var builder = Host.CreateApplicationBuilder(args);
 
-        builder.Services
-            .AddHttpClient("HmacClient", client => client.BaseAddress = new Uri("https://localhost:7134"))
-            .AddHttpMessageHandler<HmacAuthenticationHttpHandler>();
-
-        builder.Services
-            .AddHmacAuthentication()
-            .AddHostedService<Worker>();
+        builder.Services.AddHmacClient("HmacClient");
+        builder.Services.AddHostedService<Worker>();
 
         var app = builder.Build();
 
