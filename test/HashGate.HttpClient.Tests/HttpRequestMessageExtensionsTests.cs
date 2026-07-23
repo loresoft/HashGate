@@ -14,7 +14,7 @@ public class HttpRequestMessageExtensionsTests
         var client = "client1";
         var secret = "Test-HMAC-Key";
 
-        await request.AddHmacAuthentication(client, secret);
+        await request.AddHmacAuthentication(client, secret, cancellationToken: TestContext.Current.CancellationToken);
 
         // Check timestamp header
         Assert.True(request.Headers.Contains(HmacAuthenticationShared.TimeStampHeaderName));
@@ -41,7 +41,7 @@ public class HttpRequestMessageExtensionsTests
         var client = "client1";
         var secret = "Test-HMAC-Key";
 
-        await request.AddHmacAuthentication(client, secret);
+        await request.AddHmacAuthentication(client, secret, cancellationToken: TestContext.Current.CancellationToken);
 
         var contentHash = request.Headers.GetValues(HmacAuthenticationShared.ContentHashHeaderName).FirstOrDefault();
         Assert.Equal(HmacAuthenticationShared.EmptyContentHash, contentHash);
@@ -57,7 +57,7 @@ public class HttpRequestMessageExtensionsTests
             Secret = "Test-HMAC-Key"
         };
 
-        await request.AddHmacAuthentication(options);
+        await request.AddHmacAuthentication(options, cancellationToken: TestContext.Current.CancellationToken);
 
         // Check Authorization header exists and uses default scheme
         Assert.NotNull(request.Headers.Authorization);
@@ -69,7 +69,7 @@ public class HttpRequestMessageExtensionsTests
         var request = new HttpRequestMessage(HttpMethod.Post, "https://localhost/api/test");
         request.Content = null;
 
-        var hash = await HttpRequestMessageExtensions.GenerateContentHash(request);
+        var hash = await request.GenerateContentHash(cancellationToken: TestContext.Current.CancellationToken);
         Assert.Equal(HmacAuthenticationShared.EmptyContentHash, hash);
     }
 
@@ -80,7 +80,7 @@ public class HttpRequestMessageExtensionsTests
         var request = new HttpRequestMessage(HttpMethod.Post, "https://localhost/api/test");
         request.Content = content;
 
-        var hash = await HttpRequestMessageExtensions.GenerateContentHash(request);
+        var hash = await request.GenerateContentHash(cancellationToken: TestContext.Current.CancellationToken);
 
         // Precomputed SHA256 base64 for "hello world"
         Assert.Equal("uU0nuZNNPgilLlLX2n2r+sSE7+N6U4DukIj3rOLvzek=", hash);
@@ -94,7 +94,7 @@ public class HttpRequestMessageExtensionsTests
         var request = new HttpRequestMessage(HttpMethod.Post, "https://localhost/api/test");
         request.Content = content;
 
-        var hash = await HttpRequestMessageExtensions.GenerateContentHash(request);
+        var hash = await request.GenerateContentHash(cancellationToken: TestContext.Current.CancellationToken);
 
         // Precomputed SHA256 base64 for "{\"name\":\"value\",\"count\":1}"
         Assert.Equal("7OLD0I5P/f/5ZDYi0EJCXV5+BZw7o+UwSIiPvajEvqs=", hash);
@@ -107,7 +107,7 @@ public class HttpRequestMessageExtensionsTests
         var request = new HttpRequestMessage(HttpMethod.Post, "https://localhost/api/test");
         request.Content = content;
 
-        var hash = await HttpRequestMessageExtensions.GenerateContentHash(request);
+        var hash = await request.GenerateContentHash(cancellationToken: TestContext.Current.CancellationToken);
 
         // Precomputed SHA256 base64 for "   "
         Assert.Equal("Cq19p30u1Zw5bJmnTknzpFJNzby1FjJRsUM9ZAJHrrQ=", hash);
@@ -121,7 +121,7 @@ public class HttpRequestMessageExtensionsTests
         var request = new HttpRequestMessage(HttpMethod.Post, "https://localhost/api/test");
         request.Content = content;
 
-        var hash = await HttpRequestMessageExtensions.GenerateContentHash(request);
+        var hash = await request.GenerateContentHash(cancellationToken: TestContext.Current.CancellationToken);
 
         // Precomputed SHA256 base64 for {"First":"Alice","Last":"Smith","Email":"alice@example.com"}
         Assert.Equal("omo2MSjkYihoXjcxJC+NuO8JK7z6BDe6np/EQxiAq5I=", hash);
@@ -136,7 +136,7 @@ public class HttpRequestMessageExtensionsTests
             Content = content
         };
 
-        await HttpRequestMessageExtensions.GenerateContentHash(request, TestContext.Current.CancellationToken);
+        await request.GenerateContentHash(TestContext.Current.CancellationToken);
 
         // Buffered ByteArrayContent should not be recreated
         Assert.Same(content, request.Content);
@@ -152,7 +152,7 @@ public class HttpRequestMessageExtensionsTests
             Content = content
         };
 
-        await HttpRequestMessageExtensions.GenerateContentHash(request, TestContext.Current.CancellationToken);
+        await request.GenerateContentHash(TestContext.Current.CancellationToken);
 
         // Non-buffered content is recreated so the body can be read again for sending
         Assert.NotSame(content, request.Content);
@@ -170,7 +170,7 @@ public class HttpRequestMessageExtensionsTests
             Content = content
         };
 
-        await HttpRequestMessageExtensions.GenerateContentHash(request, TestContext.Current.CancellationToken);
+        await request.GenerateContentHash(TestContext.Current.CancellationToken);
 
         Assert.Equal("text/plain", request.Content!.Headers.ContentType?.MediaType);
     }
@@ -184,7 +184,7 @@ public class HttpRequestMessageExtensionsTests
             Content = content
         };
 
-        var hash = await HttpRequestMessageExtensions.GenerateContentHash(request, TestContext.Current.CancellationToken);
+        var hash = await request.GenerateContentHash(TestContext.Current.CancellationToken);
 
         // Precomputed SHA256 base64 for "hello world"
         Assert.Equal("uU0nuZNNPgilLlLX2n2r+sSE7+N6U4DukIj3rOLvzek=", hash);
