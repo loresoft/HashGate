@@ -5,6 +5,33 @@ namespace HashGate.HttpClient.Tests;
 public class HmacAuthenticationHttpHandlerTests
 {
     [Fact]
+    [Obsolete]
+    public async Task SendAsync_UsesOptionsAccessorValue()
+    {
+        // Arrange
+        var options = Microsoft.Extensions.Options.Options.Create(new HmacAuthenticationOptions
+        {
+            Client = "options-client",
+            Secret = "options-secret"
+        });
+
+        var innerHandler = new CaptureRequestHandler();
+        using var handler = new HmacAuthenticationHttpHandler(options)
+        {
+            InnerHandler = innerHandler
+        };
+
+        using var httpClient = new System.Net.Http.HttpClient(handler);
+
+        // Act
+        using var response = await httpClient.GetAsync("https://api.example.com/options", TestContext.Current.CancellationToken);
+
+        // Assert
+        var request = Assert.Single(innerHandler.Requests);
+        Assert.StartsWith("HMAC Client=options-client&", request.Headers.Authorization?.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task SendAsync_UsesCurrentOptionsForEachRequest()
     {
         // Arrange
@@ -23,7 +50,7 @@ public class HmacAuthenticationHttpHandlerTests
         using var httpClient = new System.Net.Http.HttpClient(handler);
 
         // Act
-        using var firstResponse = await httpClient.GetAsync("https://api.example.com/first");
+        using var firstResponse = await httpClient.GetAsync("https://api.example.com/first", TestContext.Current.CancellationToken);
 
         optionsMonitor.CurrentValue = new HmacAuthenticationOptions
         {
@@ -31,7 +58,7 @@ public class HmacAuthenticationHttpHandlerTests
             Secret = "updated-secret"
         };
 
-        using var secondResponse = await httpClient.GetAsync("https://api.example.com/second");
+        using var secondResponse = await httpClient.GetAsync("https://api.example.com/second", TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(2, innerHandler.Requests.Count);

@@ -61,16 +61,16 @@ public static class HttpRequestMessageExtensions
         CancellationToken cancellationToken = default)
     {
         if (request is null)
-            throw new ArgumentNullException(nameof(request));
+            throw new ArgumentNullException(nameof(request), "Request cannot be null.");
 
         if (client is null)
-            throw new ArgumentNullException(nameof(client));
+            throw new ArgumentNullException(nameof(client), "Client cannot be null.");
 
         if (string.IsNullOrWhiteSpace(client))
             throw new ArgumentException("Client cannot be empty or whitespace.", nameof(client));
 
         if (secret is null)
-            throw new ArgumentNullException(nameof(secret));
+            throw new ArgumentNullException(nameof(secret), "Secret cannot be null.");
 
         if (string.IsNullOrWhiteSpace(secret))
             throw new ArgumentException("Secret cannot be empty or whitespace.", nameof(secret));

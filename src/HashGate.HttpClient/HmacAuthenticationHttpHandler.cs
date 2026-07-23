@@ -1,5 +1,6 @@
 using System.Net.Http;
 
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
 namespace HashGate.HttpClient;
@@ -48,8 +49,21 @@ public class HmacAuthenticationHttpHandler : DelegatingHandler
     /// </summary>
     internal static readonly Uri DeferredBaseAddress = new("http://hashgate.invalid/");
 
-    private readonly IOptionsMonitor<HmacAuthenticationOptions> _optionsMonitor;
-    private readonly string _optionsName;
+    private readonly Func<HmacAuthenticationOptions> _getOptions;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="HmacAuthenticationHttpHandler"/> class.
+    /// </summary>
+    /// <param name="options">The HMAC authentication options containing client credentials and configuration.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="options"/> is <c>null</c>.</exception>
+    [Obsolete("Use HmacAuthenticationHttpHandler(IOptionsMonitor<HmacAuthenticationOptions>, string?) instead.")]
+    public HmacAuthenticationHttpHandler(IOptions<HmacAuthenticationOptions> options)
+    {
+        if (options is null)
+            throw new ArgumentNullException(nameof(options), "Options cannot be null.");
+
+        _getOptions = () => options.Value;
+    }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="HmacAuthenticationHttpHandler"/> class.
@@ -57,15 +71,16 @@ public class HmacAuthenticationHttpHandler : DelegatingHandler
     /// <param name="optionsMonitor">The monitored HMAC authentication options containing client credentials and configuration.</param>
     /// <param name="optionsName">The named options instance to use, or <c>null</c> to use the default options instance.</param>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="optionsMonitor"/> is <c>null</c>.</exception>
+    [ActivatorUtilitiesConstructor]
     public HmacAuthenticationHttpHandler(IOptionsMonitor<HmacAuthenticationOptions> optionsMonitor, string? optionsName = null)
     {
         if (optionsMonitor is null)
-            throw new ArgumentNullException(nameof(optionsMonitor));
+            throw new ArgumentNullException(nameof(optionsMonitor), "Options monitor cannot be null.");
 
         // CurrentValue is equivalent to Get(Options.DefaultName), so the default and named
         // cases collapse into a single Get(...) call at request time.
-        _optionsMonitor = optionsMonitor;
-        _optionsName = optionsName ?? Microsoft.Extensions.Options.Options.DefaultName;
+        var resolvedOptionsName = optionsName ?? Microsoft.Extensions.Options.Options.DefaultName;
+        _getOptions = () => optionsMonitor.Get(resolvedOptionsName);
     }
 
     /// <summary>
@@ -98,9 +113,9 @@ public class HmacAuthenticationHttpHandler : DelegatingHandler
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         if (request == null)
-            throw new ArgumentNullException(nameof(request));
+            throw new ArgumentNullException(nameof(request), "Request cannot be null.");
 
-        var options = _optionsMonitor.Get(_optionsName);
+        var options = _getOptions();
         ApplyBaseAddress(request, options);
 
         // If the request does not already have an Authorization header, add HMAC headers

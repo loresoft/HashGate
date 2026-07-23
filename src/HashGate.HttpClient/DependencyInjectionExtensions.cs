@@ -89,10 +89,10 @@ public static class DependencyInjectionExtensions
         Action<HmacAuthenticationOptions>? configureOptions = null)
     {
         if (services == null)
-            throw new ArgumentNullException(nameof(services));
+            throw new ArgumentNullException(nameof(services), "Services cannot be null.");
 
         if (string.IsNullOrWhiteSpace(configurationSection))
-            throw new ArgumentException("The configuration section name cannot be empty.", nameof(configurationSection));
+            throw new ArgumentException("The configuration section name cannot be empty or whitespace.", nameof(configurationSection));
 
         var optionsBuilder = services
             .AddOptions<HmacAuthenticationOptions>()
@@ -169,13 +169,13 @@ public static class DependencyInjectionExtensions
         Action<HmacAuthenticationOptions>? configureOptions = null)
     {
         if (services == null)
-            throw new ArgumentNullException(nameof(services));
+            throw new ArgumentNullException(nameof(services), "Services cannot be null.");
 
         if (string.IsNullOrWhiteSpace(name))
-            throw new ArgumentException("The HTTP client name cannot be empty.", nameof(name));
+            throw new ArgumentException("The HTTP client name cannot be empty or whitespace.", nameof(name));
 
         if (string.IsNullOrWhiteSpace(configurationSection))
-            throw new ArgumentException("The configuration section name cannot be empty.", nameof(configurationSection));
+            throw new ArgumentException("The configuration section name cannot be empty or whitespace.", nameof(configurationSection));
 
         var optionsBuilder = services
             .AddOptions<HmacAuthenticationOptions>(name)
@@ -251,10 +251,10 @@ public static class DependencyInjectionExtensions
         where TClient : class
     {
         if (services == null)
-            throw new ArgumentNullException(nameof(services));
+            throw new ArgumentNullException(nameof(services), "Services cannot be null.");
 
         if (string.IsNullOrWhiteSpace(configurationSection))
-            throw new ArgumentException("The configuration section name cannot be empty.", nameof(configurationSection));
+            throw new ArgumentException("The configuration section name cannot be empty or whitespace.", nameof(configurationSection));
 
         var optionsName = typeof(TClient).FullName ?? typeof(TClient).Name;
 

@@ -29,10 +29,10 @@ public static class OptionsUpdaterExtensions
         where TClient : class
     {
         if (updater is null)
-            throw new ArgumentNullException(nameof(updater));
+            throw new ArgumentNullException(nameof(updater), "Options updater cannot be null.");
 
         if (apply is null)
-            throw new ArgumentNullException(nameof(apply));
+            throw new ArgumentNullException(nameof(apply), "Apply delegate cannot be null.");
 
         var name = ResolveName<TClient>();
         updater.Update(name, apply);
@@ -49,7 +49,7 @@ public static class OptionsUpdaterExtensions
         where TClient : class
     {
         if (updater is null)
-            throw new ArgumentNullException(nameof(updater));
+            throw new ArgumentNullException(nameof(updater), "Options updater cannot be null.");
 
         var name = ResolveName<TClient>();
         updater.Reset(name);

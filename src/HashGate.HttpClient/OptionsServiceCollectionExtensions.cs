@@ -41,7 +41,7 @@ internal static class OptionsServiceCollectionExtensions
         where TOptions : class
     {
         if (services is null)
-            throw new ArgumentNullException(nameof(services));
+            throw new ArgumentNullException(nameof(services), "Services cannot be null.");
 
         services.TryAddSingleton<OptionsUpdater<TOptions>>();
 
