@@ -18,6 +18,6 @@
     <PackageVersion Include="Scalar.AspNetCore" Version="2.16.20" />
     <PackageVersion Include="System.Net.Http" Version="4.3.4" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.0" />
-    <PackageVersion Include="xunit.v3" Version="3.2.2" />
+    <PackageVersion Include="xunit.v3" Version="4.0.0" />
   </ItemGroup>
 </Project>
