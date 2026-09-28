@@ -1,11 +1,13 @@
-using System.Threading.RateLimiting;
 using System.Diagnostics;
+using System.Threading.RateLimiting;
 
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace HashGate.AspNetCore;
@@ -148,12 +150,38 @@ public static class RequestLimitExtensions
         Activity.Current?.SetTag(HashGateDiagnostics.RateLimitRejectedTagName, true);
         Activity.Current?.SetTag(HashGateDiagnostics.RateLimitPolicyTagName, policyName);
         Activity.Current?.SetTag(HashGateDiagnostics.RateLimitRetryAfterMillisecondsTagName, retryAfter.TotalMilliseconds);
+
         HashGateDiagnostics.RecordRateLimitRejection(policyName, retryAfter.TotalMilliseconds);
 
         httpContext.Response.Headers.RetryAfter = retrySeconds.ToString();
         httpContext.Response.Headers["X-RateLimit-Reset"] = DateTimeOffset.UtcNow.AddSeconds(retrySeconds).ToUnixTimeSeconds().ToString();
 
-        await httpContext.Response.WriteAsync($"Rate limit exceeded. Retry after {retrySeconds}s.", token);
+        var logger = httpContext.RequestServices.GetService<ILogger<RequestLimitProvider>>();
+
+        logger?.LogWarning(
+            "Rate limit exceeded for policy {Policy} on {Method} {Path}; retry after {RetryAfterSeconds}s",
+            policyName,
+            httpContext.Request.Method,
+            httpContext.Request.Path,
+            retrySeconds);
+
+        var problem = new ProblemDetails
+        {
+            Status = StatusCodes.Status429TooManyRequests,
+            Title = "Too Many Requests",
+            Detail = $"Rate limit exceeded. Retry after {retrySeconds}s.",
+            Type = "https://tools.ietf.org/html/rfc6585#section-4",
+            Instance = httpContext.Request.Path
+        };
+        problem.Extensions["retryAfter"] = retrySeconds;
+
+        httpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+
+        await httpContext.Response.WriteAsJsonAsync(
+            value: problem,
+            options: null,
+            contentType: "application/problem+json",
+            cancellationToken: token);
     }
 
     private static RateLimitPartition<string> Partition(HttpContext httpContext, string policy)

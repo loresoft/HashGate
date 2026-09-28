@@ -106,9 +106,40 @@ public class RateLimitTests
             RateLimitedApplicationFactory.ExpectedRetryAfter,
             rejected.Headers.GetValues("Retry-After").First());
 
-        // Assert — response body from OnRejectedAsync
-        var body = await rejected.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
-        Assert.Equal(RateLimitedApplicationFactory.ExpectedRejectionBody, body);
+        // Assert — response body is a problem details document
+        Assert.Equal("application/problem+json", rejected.Content.Headers.ContentType?.MediaType);
+    }
+
+    // Verifies OnRejectedAsync writes an RFC 7807 problem details JSON body.
+    [Fact]
+    public async Task Given_LimitExceeded_When_Rejected_Then_ResponseBodyIsProblemDetails()
+    {
+        // Arrange — TokenLimit = 1 × 1 = 1
+        using var factory = new RateLimitedApplicationFactory(requestsPerPeriod: 1, burstFactor: 1);
+        var client = factory.CreateClient();
+        var builder = new SignedRequestBuilder(
+            RateLimitedApplicationFactory.ClientId,
+            RateLimitedApplicationFactory.ClientSecret);
+
+        await client.SendAsync(
+            builder.BuildSignedRequest(HttpMethod.Get, "/api/rl/items"),
+            TestContext.Current.CancellationToken);
+
+        // Act
+        var rejected = await client.SendAsync(
+            builder.BuildSignedRequest(HttpMethod.Get, "/api/rl/items"),
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        var json = await rejected.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        using var document = System.Text.Json.JsonDocument.Parse(json);
+        var root = document.RootElement;
+
+        Assert.Equal(429, root.GetProperty("status").GetInt32());
+        Assert.Equal("Too Many Requests", root.GetProperty("title").GetString());
+        Assert.Equal(RateLimitedApplicationFactory.ExpectedRejectionBody, root.GetProperty("detail").GetString());
+        Assert.Equal("/api/rl/items", root.GetProperty("instance").GetString());
+        Assert.Equal(int.Parse(RateLimitedApplicationFactory.ExpectedRetryAfter), root.GetProperty("retryAfter").GetInt32());
     }
 
     // -----------------------------------------------------------------------
