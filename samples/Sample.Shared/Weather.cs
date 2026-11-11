@@ -2,7 +2,7 @@ namespace Sample.Shared;
 
 public class Weather
 {
-    public DateOnly Date { get; set; }
+    public DateTime Date { get; set; }
 
     public int TemperatureC { get; set; }
 

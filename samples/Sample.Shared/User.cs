@@ -1,3 +1,10 @@
 namespace Sample.Shared;
 
-public record User(string First, string Last, string Email);
+public class User
+{
+    public string First { get; set; } = string.Empty;
+
+    public string Last { get; set; } = string.Empty;
+
+    public string Email { get; set; } = string.Empty;
+}

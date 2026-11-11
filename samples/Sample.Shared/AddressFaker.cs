@@ -6,14 +6,11 @@ public class AddressFaker : Faker<Address>
 {
     public AddressFaker()
     {
-        CustomInstantiator(f => new Address(
-                Line1: f.Address.StreetAddress(),
-                Line2: f.Address.SecondaryAddress(),
-                City: f.Address.City(),
-                State: f.Address.State(),
-                ZipCode: f.Address.ZipCode()
-            )
-        );
+        RuleFor(p => p.Line1, f => f.Address.StreetAddress());
+        RuleFor(p => p.Line2, f => f.Address.SecondaryAddress());
+        RuleFor(p => p.City, f => f.Address.City());
+        RuleFor(p => p.State, f => f.Address.State());
+        RuleFor(p => p.ZipCode, f => f.Address.ZipCode());
     }
 
     private static readonly Lazy<AddressFaker> _instance = new();

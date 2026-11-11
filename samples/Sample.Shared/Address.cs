@@ -1,3 +1,14 @@
 namespace Sample.Shared;
 
-public record Address(string Line1, string Line2, string City, string State, string ZipCode);
+public class Address
+{
+    public string? Line1 { get; set; }
+
+    public string? Line2 { get; set; }
+
+    public string? City { get; set; }
+
+    public string? State { get; set; }
+
+    public string? ZipCode { get; set; }
+}
