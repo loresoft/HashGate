@@ -8,6 +8,10 @@
     <PackageTags>aspnetcore;hmac;authentication;middleware;security;api</PackageTags>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net11.0'">
+    <Features>runtime-async=on</Features>
+  </PropertyGroup>
+
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
